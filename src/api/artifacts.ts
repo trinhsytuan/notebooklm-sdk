@@ -694,7 +694,11 @@ export class ArtifactsAPI {
   // ---------------------------------------------------------------------------
   // Internal
   /** Export a completed report artifact to Google Docs. Returns the created document URL. */
-  async exportReport(notebookId: string, artifactId: string, title: string): Promise<string | null> {
+  async exportReport(
+    notebookId: string,
+    artifactId: string,
+    title: string,
+  ): Promise<string | null> {
     const params = [null, artifactId, null, title, ExportType.DOCS];
     const result = await this.rpc.call(RPCMethod.EXPORT_ARTIFACT, params, {
       sourcePath: `/notebook/${notebookId}`,
@@ -704,7 +708,11 @@ export class ArtifactsAPI {
   }
 
   /** Export a completed data table artifact to Google Sheets. Returns the created spreadsheet URL. */
-  async exportDataTable(notebookId: string, artifactId: string, title: string): Promise<string | null> {
+  async exportDataTable(
+    notebookId: string,
+    artifactId: string,
+    title: string,
+  ): Promise<string | null> {
     const params = [null, artifactId, null, title, ExportType.SHEETS];
     const result = await this.rpc.call(RPCMethod.EXPORT_ARTIFACT, params, {
       sourcePath: `/notebook/${notebookId}`,
