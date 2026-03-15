@@ -1,14 +1,18 @@
-# notebooklm-sdk
+<div align="center">
+<img src="https://cdn.worldvectorlogo.com/logos/google-notebooklm-logo-icon.svg" width="48" alt="NotebookLM SDK" />
+<h1>notebooklm-sdk</h1>
 
-### Automate NotebookLM from your code.
+<p>Automate NotebookLM from your code.</p>
+
+<p>Generate AI podcasts, chat with documents, run web research, and manage notebooks programmatically — from Node.js, Bun, or Deno.</p>
 
 [![npm version](https://img.shields.io/npm/v/notebooklm-sdk?style=flat-square)](https://www.npmjs.com/package/notebooklm-sdk)
 ![types](https://img.shields.io/npm/types/notebooklm-sdk?style=flat-square)
 ![license](https://img.shields.io/npm/l/notebooklm-sdk?style=flat-square)
 
-Generate AI podcasts, chat with documents, run web research, and manage notebooks programmatically — from Node.js, Bun, or Deno.
+</div>
 
-> **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
+> _**Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google._
 
 TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py).
 
@@ -50,12 +54,12 @@ console.log(res.answer);
 
 ## Use cases
 
-- **Blog & content generation** — research a topic, import sources, generate a blog post or briefing doc automatically
+- **Blog & content generation** — research a topic, import sources, generate a briefing doc automatically
 - **Content pipelines** — ingest articles or reports, generate a podcast or briefing doc on a schedule
 - **Research automation** — run web research, import results, and query them via chat
 - **Document Q&A bots** — feed documents into a notebook and build a chat interface on top
 - **Batch artifact generation** — generate quizzes, flashcards, or study guides from a library of sources
-- **Notebook management tools** — create, organize, and share notebooks programmatically
+- **Notebook management** — create, organize, and share notebooks programmatically
 
 ## Authentication
 
@@ -96,7 +100,7 @@ const client = await NotebookLMClient.connect({
 
 > To get cookie values: open NotebookLM in Chrome → DevTools → Network → any request → copy the `Cookie` header.
 
-## What you can build
+**API surface**
 
 | API         | What it does                                            |
 | ----------- | ------------------------------------------------------- |
@@ -123,7 +127,7 @@ const client = await NotebookLMClient.connect({
 | Quiz           | `createQuiz()`       | Interactive HTML  |
 | Data Table     | `createDataTable()`  | CSV (headers + rows) |
 
-→ [Full API reference](./DOCS.md)
+[Full API reference →](./DOCS.md)
 
 ## Examples
 
@@ -145,6 +149,15 @@ bun run examples/full-lifecycle.ts  # create, add sources, chat, delete
 bun run examples/download.ts        # download all completed artifacts
 ```
 
+## Requirements
+
+- Node.js 18+ or Bun 1.0+
+- A Google account with access to [NotebookLM](https://notebooklm.google.com)
+
+## Contributing
+
+Issues and PRs welcome. If the API breaks after a Google update, please open an issue with the error and request/response details.
+
 ## License
 
-MIT · TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py)
+MIT
