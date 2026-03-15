@@ -4,7 +4,7 @@
 ![types](https://img.shields.io/npm/types/notebooklm-sdk?style=flat-square)
 ![license](https://img.shields.io/npm/l/notebooklm-sdk?style=flat-square)
 
-A lightweight, zero-dependency TypeScript SDK for the NotebookLM API.  
+A lightweight, zero-dependency TypeScript SDK for the NotebookLM API.
 Works in **Node.js, Bun, and Deno**.
 
 > This SDK is a TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py).
@@ -23,78 +23,60 @@ bun add notebooklm-sdk
 
 ### Quick Login (Recommended)
 
-First, install playwright:
+Install Playwright (one-time):
 
 ```bash
 bun add -d playwright
 bunx playwright install chromium
 ```
 
-Then, authenticate using the CLI:
+Authenticate:
 
 ```bash
 npx notebooklm-sdk login
-# or
-bun x notebooklm-sdk login
 ```
 
-This opens a real browser for Google sign-in and generates a
-`storage_state.json` file you can reuse.
+This opens a real browser for Google sign-in and saves your session to `~/.notebooklm/session.json`.
 
-Then connect using the file:
+Then connect with no configuration:
 
 ```ts
 import { NotebookLMClient } from "notebooklm-sdk";
 
-const client = await NotebookLMClient.connect({
-  cookiesFile: "./storage_state.json",
-});
+const client = await NotebookLMClient.connect();
+```
+
+To verify your session at any time:
+
+```bash
+npx notebooklm-sdk whoami
 ```
 
 <details>
-<summary>Manual Authentication</summary>
+<summary>Manual / CI Authentication</summary>
 
-You can authenticate in multiple ways depending on your setup.
+#### Cookie string
 
-#### 1. Use `.env` Cookie String
-
-Copy the `Cookie` header from DevTools → Network and store it:
-
-```bash
-NOTEBOOKLM_COOKIE="SID=...; HSID=..."
-```
-
-Then:
+Copy the `Cookie` header from DevTools → Network and pass it directly or via env:
 
 ```ts
 const client = await NotebookLMClient.connect({
-  cookies: process.env.NOTEBOOKLM_COOKIE,
+  cookies: process.env.NOTEBOOKLM_COOKIES,
 });
 ```
 
----
-
-#### 2. Use Playwright `storage_state.json`
-
-If you already have a Playwright storage file:
+#### Cookie file
 
 ```ts
 const client = await NotebookLMClient.connect({
-  cookiesFile: "./storage_state.json",
+  cookiesFile: "./session.json",
 });
 ```
 
----
+#### Auto-discovery order (when called with no args)
 
-#### 3. Pass Cookies Directly
-
-You can also pass cookies at runtime:
-
-```ts
-const client = await NotebookLMClient.connect({
-  cookies: "SID=...; HSID=...",
-});
-```
+1. `~/.notebooklm/session.json` — written by `npx notebooklm-sdk login`
+2. `NOTEBOOKLM_COOKIES` env var — raw cookie string
 
 </details>
 
@@ -122,19 +104,11 @@ const description = await client.notebooks.getDescription(id);
 ```ts
 const sources = await client.sources.list(notebookId);
 
-const { sourceId } = await client.sources.addUrl(
-  notebookId,
-  "https://example.com",
-);
-const { sourceId } = await client.sources.addText(notebookId, "Text", "Title");
-const { sourceId } = await client.sources.addFile(
-  notebookId,
-  buffer,
-  "file.pdf",
-);
+const { sourceId } = await client.sources.addUrl(notebookId, "https://example.com");
+const { sourceId } = await client.sources.addText(notebookId, "Text content", "Title");
+const { sourceId } = await client.sources.addFile(notebookId, buffer, "file.pdf");
 
 await client.sources.waitUntilReady(notebookId, sourceId);
-
 await client.sources.delete(notebookId, sourceId);
 ```
 
@@ -148,7 +122,6 @@ Generate AI outputs from notebook sources.
 const { artifactId } = await client.artifacts.createAudio(notebookId, {
   format: AudioFormat.DEEP_DIVE,
   length: AudioLength.DEFAULT,
-  language: "en",
 });
 
 const { artifactId } = await client.artifacts.createVideo(notebookId, {
@@ -163,19 +136,15 @@ const { artifactId } = await client.artifacts.createReport(notebookId, {
 });
 ```
 
-Wait & download:
+Wait and download:
 
 ```ts
 await client.artifacts.waitUntilReady(notebookId, artifactId);
 
-const audio = await client.artifacts.downloadAudio(notebookId, artifactId);
-const video = await client.artifacts.downloadVideo(notebookId, artifactId);
-
-const markdown = await client.artifacts.getReportMarkdown(
-  notebookId,
-  artifactId,
-);
-const html = await client.artifacts.getInteractiveHtml(notebookId, artifactId);
+const audio    = await client.artifacts.downloadAudio(notebookId, artifactId);
+const video    = await client.artifacts.downloadVideo(notebookId, artifactId);
+const markdown = await client.artifacts.getReportMarkdown(notebookId, artifactId);
+const html     = await client.artifacts.getInteractiveHtml(notebookId, artifactId);
 ```
 
 ---
@@ -186,12 +155,38 @@ const html = await client.artifacts.getInteractiveHtml(notebookId, artifactId);
 const res = await client.chat.ask(notebookId, "What is this about?");
 console.log(res.answer);
 
+// Follow-up in the same conversation
 const follow = await client.chat.ask(notebookId, "Tell me more.", {
   conversationId: res.conversationId,
 });
 
 const convId = await client.chat.getLastConversationId(notebookId);
-const turns = await client.chat.getConversationTurns(notebookId, convId);
+const turns  = await client.chat.getConversationTurns(notebookId, convId);
+```
+
+---
+
+## Research
+
+Start a web research session and import results into a notebook:
+
+```ts
+const task = await client.research.start(
+  notebookId,
+  "Latest advances in quantum computing",
+  "web",   // "web" | "notebook"
+  "fast",  // "fast" | "deep"
+);
+
+let result = await client.research.poll(notebookId);
+while (result.status === "in_progress") {
+  await new Promise((r) => setTimeout(r, 3000));
+  result = await client.research.poll(notebookId);
+}
+
+if (result.status === "completed") {
+  await client.research.importSources(notebookId, result.taskId, result.sources.slice(0, 3));
+}
 ```
 
 ---
@@ -201,31 +196,8 @@ const turns = await client.chat.getConversationTurns(notebookId, convId);
 ```ts
 const { noteId } = await client.notes.create(notebookId, "# My Note");
 
-await client.notes.update(notebookId, noteId, "Updated");
+await client.notes.update(notebookId, noteId, "Updated content");
 await client.notes.delete(notebookId, noteId);
-```
-
----
-
-## Research
-
-```ts
-const task = await client.research.start(
-  notebookId,
-  "Latest advances in quantum computing",
-  "web",
-  "deep",
-);
-
-const result = await client.research.poll(notebookId);
-
-if (result.status === "completed") {
-  await client.research.importSources(
-    notebookId,
-    result.taskId,
-    result.sources.slice(0, 2),
-  );
-}
 ```
 
 ---
@@ -235,11 +207,11 @@ if (result.status === "completed") {
 ```ts
 await client.sharing.setPublic(notebookId, true);
 
-await client.sharing.addUser(
-  notebookId,
-  "user@example.com",
-  SharePermission.VIEWER,
-);
+await client.sharing.addUser(notebookId, "user@example.com", SharePermission.VIEWER);
+await client.sharing.updateUser(notebookId, "user@example.com", SharePermission.EDITOR);
+await client.sharing.removeUser(notebookId, "user@example.com");
+
+const status = await client.sharing.getStatus(notebookId);
 ```
 
 ---
@@ -257,18 +229,16 @@ await client.settings.setOutputLanguage("ja");
 
 Runnable scripts are in [`examples/`](./examples).
 
-**Setup:**
-
-1. `npm run login` to create `storage_state.json`.
-2. Run any example below.
-
 ```bash
-# for auto login
-bun run login
-bun run examples/basic.ts
+# Authenticate once
+npx notebooklm-sdk login
 
-# for manual cookie
-bunx dotenv -e .env -- bunx tsx examples/basic.ts
+# Run any example
+bun run examples/basic.ts
+bun run examples/chat.ts
+bun run examples/research.ts
+bun run examples/audio.ts
+bun run examples/download.ts
 ```
 
 ---
@@ -278,6 +248,8 @@ bunx dotenv -e .env -- bunx tsx examples/basic.ts
 All errors extend `NotebookLMError`.
 
 ```ts
+import { ArtifactNotReadyError } from "notebooklm-sdk/errors";
+
 try {
   await client.artifacts.downloadAudio(notebookId, artifactId);
 } catch (err) {
@@ -285,19 +257,6 @@ try {
     // still processing
   }
 }
-```
-
----
-
-## Project Structure
-
-```
-src/
-  client.ts
-  auth.ts
-  api/
-  rpc/
-  types/
 ```
 
 ---
