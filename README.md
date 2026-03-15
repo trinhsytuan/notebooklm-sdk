@@ -22,6 +22,11 @@ bun add notebooklm-sdk
 
 ## Quickstart
 
+```bash
+# Run once to authenticate
+npx notebooklm-sdk login
+```
+
 ```ts
 import { NotebookLMClient } from "notebooklm-sdk";
 
@@ -45,6 +50,7 @@ console.log(res.answer);
 
 ## Use cases
 
+- **Blog & content generation** — research a topic, import sources, generate a blog post or briefing doc automatically
 - **Content pipelines** — ingest articles or reports, generate a podcast or briefing doc on a schedule
 - **Research automation** — run web research, import results, and query them via chat
 - **Document Q&A bots** — feed documents into a notebook and build a chat interface on top
@@ -124,11 +130,18 @@ const client = await NotebookLMClient.connect({
 ```bash
 npx notebooklm-sdk login
 
-bun run examples/basic.ts
-bun run examples/chat.ts
-bun run examples/audio.ts
-bun run examples/research.ts
-bun run examples/download.ts
+bun run examples/basic.ts           # list notebooks and sources
+bun run examples/chat.ts            # ask questions, follow-up conversations
+bun run examples/audio.ts           # generate and download a podcast
+bun run examples/report.ts          # generate and download a briefing doc
+bun run examples/slide-deck.ts      # generate and download PDF / PPTX
+bun run examples/infographic.ts     # generate and download a PNG infographic
+bun run examples/mind-map.ts        # generate and download mind map JSON
+bun run examples/data-table.ts      # generate and download a CSV data table
+bun run examples/research.ts        # web research and import sources
+bun run examples/research-and-chat.ts  # research → import → chat
+bun run examples/full-lifecycle.ts  # create, add sources, chat, delete
+bun run examples/download.ts        # download all completed artifacts
 ```
 
 ## License
