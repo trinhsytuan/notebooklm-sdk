@@ -6,6 +6,8 @@
 
 Unofficial TypeScript SDK for [NotebookLM](https://notebooklm.google.com). Manage notebooks, add sources, generate podcasts and reports, and chat with your sources — all from Node.js, Bun, or Deno.
 
+TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py).
+
 > **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
 
 ---
