@@ -19,3 +19,7 @@ console.log(`Saved PDF (${(pdf.length / 1024).toFixed(0)} KB)`);
 const pptx = await client.artifacts.downloadSlideDeck(nb.id, artifactId!, "pptx");
 await fs.writeFile(`downloads/${artifactId}.pptx`, pptx);
 console.log(`Saved PPTX (${(pptx.length / 1024).toFixed(0)} KB)`);
+
+// Revise slide 0 (zero-based index)
+const revision = await client.artifacts.reviseSlide(nb.id, artifactId!, 0, "Move the title to the top");
+console.log(`Revision started: ${revision.artifactId} (${revision.status})`);

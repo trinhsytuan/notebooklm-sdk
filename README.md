@@ -8,7 +8,7 @@
 
 Generate AI podcasts, chat with documents, run web research, and manage notebooks programmatically — from Node.js, Bun, or Deno.
 
-> ⚠️ **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
+> **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
 
 TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py).
 

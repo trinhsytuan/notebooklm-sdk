@@ -102,6 +102,14 @@ await client.notebooks.rename(id, "New Title");
 await client.notebooks.delete(id);
 ```
 
+### `client.notebooks.removeFromRecent(notebookId)`
+
+Remove a notebook from the recently viewed list on the home screen. Does not delete the notebook.
+
+```ts
+await client.notebooks.removeFromRecent(id);
+```
+
 ### `client.notebooks.getSummary(notebookId)`
 
 Returns a text summary of the notebook's sources.
@@ -163,10 +171,41 @@ await client.sources.waitUntilReady(notebookId, source.id);
 await client.sources.waitUntilReady(notebookId, source.id, 120, 3); // 120s timeout, 3s interval
 ```
 
+### `client.sources.getFulltext(notebookId, sourceId)`
+
+Get the full indexed text content of a source — what NotebookLM uses for chat and artifact generation.
+
+```ts
+const fulltext = await client.sources.getFulltext(notebookId, source.id);
+// { sourceId, title, content, url, charCount }
+console.log(`${fulltext.charCount} chars indexed`);
+console.log(fulltext.content);
+```
+
 ### `client.sources.delete(notebookId, sourceId)`
 
 ```ts
 await client.sources.delete(notebookId, source.id);
+```
+
+### `client.sources.checkFreshness(notebookId, sourceId)`
+
+Check if a URL-based source has newer content available since it was last indexed.
+
+```ts
+const isFresh = await client.sources.checkFreshness(notebookId, source.id);
+if (!isFresh) await client.sources.refresh(notebookId, source.id);
+```
+
+### `client.sources.getGuide(notebookId, sourceId)`
+
+Get the AI-generated Source Guide for a source — the same summary and keywords shown in the NotebookLM UI when you click a source.
+
+```ts
+const guide = await client.sources.getGuide(notebookId, source.id);
+// { summary: string, keywords: string[] }
+console.log(guide.summary);   // markdown with **bold** keywords
+console.log(guide.keywords);  // ["topic1", "topic2", ...]
 ```
 
 ---
@@ -192,6 +231,10 @@ const { artifactId } = await client.artifacts.createVideo(notebookId, {
   format: "explainer",   // "explainer" | "brief" | "cinematic"
   style: "classic",      // "auto_select" | "classic" | "whiteboard" | "kawaii" | ...
 });
+
+// Get AI-suggested report formats before generating
+const suggestions = await client.artifacts.suggestReports(notebookId);
+// [{ title, description, prompt, audienceLevel }, ...]
 
 // Report
 const { artifactId } = await client.artifacts.createReport(notebookId, {
@@ -268,6 +311,17 @@ const table = await client.artifacts.getDataTableContent(notebookId, artifactId)
 // { headers: string[], rows: string[][] }
 ```
 
+### Revise a Slide
+
+Edit an individual slide in a completed slide deck using a natural language prompt.
+
+```ts
+const { artifactId } = await client.artifacts.waitUntilReady(notebookId, slideDeckArtifactId);
+
+// slideIndex is zero-based
+const status = await client.artifacts.reviseSlide(notebookId, artifactId, 0, "Move the title to the top");
+```
+
 ---
 
 ## Chat
@@ -305,6 +359,24 @@ Returns the full history of a conversation.
 const turns = await client.chat.getConversationTurns(notebookId, convId);
 // ConversationTurn[] — { query, answer, turnNumber }
 ```
+
+### `client.chat.setMode(notebookId, mode)`
+
+Set the chat response style for a notebook. Persists on the server.
+
+```ts
+import { ChatMode } from "notebooklm-sdk";
+
+await client.chat.setMode(notebookId, ChatMode.CONCISE);
+// ChatMode.DEFAULT | ChatMode.CONCISE | ChatMode.DETAILED | ChatMode.LEARNING_GUIDE
+```
+
+| Mode | Behaviour |
+|------|-----------|
+| `DEFAULT` | Balanced length and style |
+| `CONCISE` | Short, direct answers |
+| `DETAILED` | Verbose, thorough answers |
+| `LEARNING_GUIDE` | Educational focus with longer responses |
 
 ---
 

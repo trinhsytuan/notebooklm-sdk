@@ -1,6 +1,7 @@
 import type { AuthTokens } from "../auth.js";
 import type { RPCCore } from "../rpc/core.js";
-import { RPCMethod } from "../types/enums.js";
+import { chatModeToParams, RPCMethod } from "../types/enums.js";
+import type { ChatModeValue } from "../types/enums.js";
 import { ChatError } from "../types/errors.js";
 import type { AskResult, ChatReference, ConversationTurn } from "../types/models.js";
 
@@ -154,6 +155,20 @@ export class ChatAPI {
       }
     }
     return null;
+  }
+
+  /**
+   * Set the chat mode for a notebook. Persists on the server — affects all
+   * subsequent `ask()` calls until changed.
+   */
+  async setMode(notebookId: string, mode: ChatModeValue): Promise<void> {
+    const [goal, length] = chatModeToParams(mode);
+    const chatSettings = [[goal], [length]];
+    const params = [notebookId, [[null, null, null, null, null, null, null, chatSettings]]];
+    await this.rpc.call(RPCMethod.RENAME_NOTEBOOK, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
   }
 
   clearCache(conversationId?: string): void {

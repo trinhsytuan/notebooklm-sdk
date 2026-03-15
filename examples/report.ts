@@ -5,6 +5,13 @@ const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];
 console.log(`Notebook: ${nb.title}`);
 
+// Optionally get AI-suggested report formats before generating
+const suggestions = await client.artifacts.suggestReports(nb.id);
+if (suggestions.length) {
+  console.log("Suggested reports:");
+  for (const s of suggestions) console.log(`  - ${s.title}: ${s.description}`);
+}
+
 const { artifactId } = await client.artifacts.createReport(nb.id, { format: "briefing_doc" });
 console.log(`Generating report... (${artifactId})`);
 

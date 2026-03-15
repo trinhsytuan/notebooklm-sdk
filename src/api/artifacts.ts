@@ -30,7 +30,7 @@ import {
   VideoStyle,
 } from "../types/enums.js";
 import { ArtifactNotReadyError } from "../types/errors.js";
-import type { Artifact, GenerationStatus, Note } from "../types/models.js";
+import type { Artifact, GenerationStatus, Note, ReportSuggestion } from "../types/models.js";
 import { parseArtifact } from "../types/models.js";
 import type { NotesAPI } from "./notes.js";
 
@@ -603,6 +603,46 @@ export class ArtifactsAPI {
     }
     if (!url) throw new ArtifactNotReadyError("infographic", { artifactId });
     return this._fetchMediaWithCookies(url);
+  }
+
+  /** Get AI-suggested report formats based on notebook content. */
+  async suggestReports(notebookId: string): Promise<ReportSuggestion[]> {
+    const params = [[2], notebookId];
+    const result = await this.rpc.call(RPCMethod.GET_SUGGESTED_REPORTS, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+      timeoutMs: 120_000,
+    });
+    if (!Array.isArray(result) || !result.length) return [];
+    const items = Array.isArray(result[0]) ? (result[0] as unknown[]) : result;
+    const suggestions: ReportSuggestion[] = [];
+    for (const item of items) {
+      if (Array.isArray(item) && item.length >= 5) {
+        suggestions.push({
+          title: typeof item[0] === "string" ? item[0] : "",
+          description: typeof item[1] === "string" ? item[1] : "",
+          prompt: typeof item[4] === "string" ? item[4] : "",
+          audienceLevel: typeof item[5] === "number" ? item[5] : 2,
+        });
+      }
+    }
+    return suggestions;
+  }
+
+  /** Revise an individual slide in a completed slide deck using a prompt. */
+  async reviseSlide(
+    notebookId: string,
+    artifactId: string,
+    slideIndex: number,
+    prompt: string,
+  ): Promise<GenerationStatus> {
+    if (slideIndex < 0) throw new Error("slideIndex must be >= 0");
+    const params = [[2], artifactId, [[[slideIndex, prompt]]]];
+    const result = await this.rpc.call(RPCMethod.REVISE_SLIDE, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+    return this._parseGenerationResult(result);
   }
 
   /** Get parsed headers and rows from a completed data table artifact. */

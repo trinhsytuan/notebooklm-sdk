@@ -14,3 +14,12 @@ console.log(
   "Sources:",
   sources.map((s) => s.title),
 );
+
+if (sources[0]) {
+  const guide = await client.sources.getGuide(first.id, sources[0].id);
+  console.log("Source guide summary:", guide.summary);
+  console.log("Keywords:", guide.keywords);
+
+  const fulltext = await client.sources.getFulltext(first.id, sources[0].id);
+  console.log(`Fulltext: ${fulltext.charCount} chars, title: "${fulltext.title}"`);
+}

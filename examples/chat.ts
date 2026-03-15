@@ -1,8 +1,11 @@
-import { NotebookLMClient } from "../src/index.js";
+import { ChatMode, NotebookLMClient } from "../src/index.js";
 
 const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];
 console.log(`Notebook: ${nb.title}`);
+
+// Set chat mode (persists on server)
+await client.chat.setMode(nb.id, ChatMode.CONCISE);
 
 const result = await client.chat.ask(
   nb.id,

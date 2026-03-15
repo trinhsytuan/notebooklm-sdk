@@ -64,7 +64,10 @@ export interface Source {
 
 export interface SourceFulltext {
   sourceId: string;
-  text: string;
+  title: string;
+  content: string;
+  url: string | null;
+  charCount: number;
 }
 
 export interface SourceSummaryData {
@@ -152,6 +155,21 @@ export interface Note {
   content: string;
   createdAt: Date | null;
   updatedAt: Date | null;
+}
+
+export interface SourceGuide {
+  /** AI-generated summary with **bold** keywords (markdown). */
+  summary: string;
+  /** Topic keywords extracted from the source. */
+  keywords: string[];
+}
+
+export interface ReportSuggestion {
+  title: string;
+  description: string;
+  prompt: string;
+  /** 1 = beginner, 2 = advanced */
+  audienceLevel: number;
 }
 
 // ---------------------------------------------------------------------------

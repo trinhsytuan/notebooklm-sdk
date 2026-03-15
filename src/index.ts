@@ -35,6 +35,7 @@ export type { ClientOptions } from "./client.js";
 export { NotebookLMClient } from "./client.js";
 export type {
   AudioFormatValue,
+  ChatModeValue,
   AudioLengthValue,
   ExportTypeValue,
   InfographicDetailValue,
@@ -55,6 +56,7 @@ export type {
 export {
   ArtifactTypeCode,
   AudioFormat,
+  ChatMode,
   AudioLength,
   ExportType,
   InfographicDetail,
@@ -106,11 +108,14 @@ export type {
   GenerationStatus,
   Note,
   Notebook,
+  ReportSuggestion,
   NotebookDescription,
   NotebookMetadata,
   SharedUser,
   ShareStatus,
   Source,
+  SourceFulltext,
+  SourceGuide,
   SourceStatus,
   SourceSummary,
   SourceType,

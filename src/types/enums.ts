@@ -303,6 +303,39 @@ export function sourceStatusFromCode(code: number): SourceStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Chat mode
+// ---------------------------------------------------------------------------
+
+/**
+ * Predefined chat modes that control response style and verbosity.
+ * Applied per-notebook via `client.chat.setMode()`.
+ */
+export const ChatMode = {
+  /** General purpose — balanced length and style. */
+  DEFAULT: "default",
+  /** Educational focus with longer, learning-oriented responses. */
+  LEARNING_GUIDE: "learning_guide",
+  /** Short, concise answers. */
+  CONCISE: "concise",
+  /** Verbose, detailed answers. */
+  DETAILED: "detailed",
+} as const;
+
+export type ChatModeValue = (typeof ChatMode)[keyof typeof ChatMode];
+
+// Internal goal/length codes used by the RPC
+const CHAT_MODE_PARAMS: Record<ChatModeValue, [goal: number, length: number]> = {
+  default:        [1, 1],
+  learning_guide: [3, 4],
+  concise:        [1, 5],
+  detailed:       [1, 4],
+};
+
+export function chatModeToParams(mode: ChatModeValue): [goal: number, length: number] {
+  return CHAT_MODE_PARAMS[mode];
+}
+
+// ---------------------------------------------------------------------------
 // Sharing enums
 // ---------------------------------------------------------------------------
 

@@ -60,6 +60,10 @@ export class NotebooksAPI {
     return "";
   }
 
+  async removeFromRecent(notebookId: string): Promise<void> {
+    await this.rpc.call(RPCMethod.REMOVE_RECENTLY_VIEWED, [notebookId], { allowNull: true });
+  }
+
   async getDescription(notebookId: string): Promise<NotebookDescription> {
     const params = [notebookId, [2]];
     const result = await this.rpc.call(RPCMethod.SUMMARIZE, params, {
