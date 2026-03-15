@@ -5,22 +5,20 @@ const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];
 console.log(`Notebook: ${nb.title}`);
 
-await client.artifacts.createMindMap(nb.id);
-console.log("Generating mind map...");
-
-// Mind maps are stored in the notes system — poll until it appears
-let json = null;
-for (let i = 0; i < 20; i++) {
-  await new Promise((r) => setTimeout(r, 3000));
-  json = await client.notes.getMindMapContent(nb.id);
-  if (json) break;
+// List existing mind maps
+const existing = await client.notes.listMindMaps(nb.id);
+console.log(`\nExisting mind maps: ${existing.length}`);
+for (const mm of existing) {
+  console.log(`  - [${mm.id}] ${mm.title ?? "(no title)"}`);
 }
 
-if (!json) {
-  console.log("Mind map not ready.");
-  process.exit(1);
-}
+// Generate a new mind map
+console.log("\nGenerating mind map...");
+const note = await client.artifacts.createMindMap(nb.id);
+console.log(`Created: [${note.id}] ${note.title ?? "(no title)"}`);
 
+const json = JSON.parse(note.content);
 await fs.mkdir("downloads", { recursive: true });
-await fs.writeFile("downloads/mind-map.json", JSON.stringify(json, null, 2));
-console.log("Saved downloads/mind-map.json");
+const filename = (note.title ?? note.id).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+await fs.writeFile(`downloads/${filename}.json`, JSON.stringify(json, null, 2));
+console.log(`Saved downloads/${filename}.json`);

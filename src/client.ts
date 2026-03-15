@@ -45,9 +45,9 @@ export class NotebookLMClient {
     const rpc = new RPCCore(auth, opts.timeoutMs);
     this.notebooks = new NotebooksAPI(rpc);
     this.sources = new SourcesAPI(rpc, auth);
-    this.artifacts = new ArtifactsAPI(rpc, auth);
-    this.chat = new ChatAPI(rpc, auth);
     this.notes = new NotesAPI(rpc);
+    this.artifacts = new ArtifactsAPI(rpc, auth, this.notes);
+    this.chat = new ChatAPI(rpc, auth);
     this.research = new ResearchAPI(rpc);
     this.settings = new SettingsAPI(rpc);
     this.sharing = new SharingAPI(rpc);

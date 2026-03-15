@@ -36,19 +36,27 @@ for (const a of completed) {
   }
 }
 
-// Also download mind maps from notes
-const { mindMaps } = await client.notes.list(nb.id);
+// Mind maps are stored as notes — list and download separately
+const mindMaps = await client.notes.listMindMaps(nb.id);
 for (const mm of mindMaps) {
-  const json = await client.notes.getMindMapContent(nb.id, mm.id);
-  if (json) {
-    const file = path.join(DOWNLOAD_DIR, `${mm.id}.json`);
+  try {
+    const json = JSON.parse(mm.content);
+    const name = (mm.title ?? mm.id).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const file = path.join(DOWNLOAD_DIR, `${name}.json`);
     await fs.writeFile(file, JSON.stringify(json, null, 2));
-    console.log(`  Saved → downloads/${mm.id}.json  (mind_map)`);
+    console.log(`  Saved → downloads/${name}.json  (mind_map)`);
+  } catch {
+    // skip unparseable
   }
 }
 
 function slugify(a: Artifact): string {
-  const base = a.title ? a.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase().replace(/^-|-$/g, "") : a.id;
+  const base = a.title
+    ? a.title
+        .replace(/[^a-z0-9]+/gi, "-")
+        .toLowerCase()
+        .replace(/^-|-$/g, "")
+    : a.id;
   return `${base}`;
 }
 

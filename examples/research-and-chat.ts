@@ -16,7 +16,11 @@ while (result.status === "in_progress") {
   result = await client.research.poll(id);
 }
 
-const imported = await client.research.importSources(id, result.taskId!, result.sources.slice(0, 3));
+const imported = await client.research.importSources(
+  id,
+  result.taskId!,
+  result.sources.slice(0, 3),
+);
 console.log(`Imported ${imported.length} sources`);
 
 // Wait for sources to be indexed

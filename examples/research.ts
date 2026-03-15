@@ -18,5 +18,9 @@ for (const src of result.sources.slice(0, 3)) {
   console.log(`  - ${src.title}`);
 }
 
-const imported = await client.research.importSources(nb.id, result.taskId!, result.sources.slice(0, 3));
+const imported = await client.research.importSources(
+  nb.id,
+  result.taskId!,
+  result.sources.slice(0, 3),
+);
 console.log(`Imported ${imported.length} sources into notebook`);

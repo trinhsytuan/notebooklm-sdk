@@ -175,50 +175,63 @@ await client.sources.delete(notebookId, source.id);
 
 Artifacts are AI-generated outputs: podcasts, videos, reports, quizzes, and flashcards.
 
-### Create
+### Create (async — poll to completion)
+
+Most artifact methods return a `GenerationStatus` with an `artifactId`. Use `waitUntilReady` to poll until done.
 
 ```ts
-// Deep Dive podcast
+// Audio Overview (podcast)
 const { artifactId } = await client.artifacts.createAudio(notebookId, {
-  format: AudioFormat.DEEP_DIVE,   // "deep_dive" | AudioFormat.DEEP_DIVE
-  length: AudioLength.DEFAULT,
-  language: "en",                  // optional
+  format: "deep_dive",   // "deep_dive" | "brief" | "critique" | "debate"
+  length: "default",     // "default" | "short" | "long"
+  language: "en",
 });
 
-// Explainer video
+// Video Overview
 const { artifactId } = await client.artifacts.createVideo(notebookId, {
-  format: VideoFormat.EXPLAINER,
+  format: "explainer",   // "explainer" | "brief" | "cinematic"
+  style: "classic",      // "auto_select" | "classic" | "whiteboard" | "kawaii" | ...
 });
 
 // Report
 const { artifactId } = await client.artifacts.createReport(notebookId, {
-  format: "briefing_doc",          // "briefing_doc" | "faq" | "study_guide" | "custom"
-  customPrompt: "...",             // required when format is "custom"
+  format: "briefing_doc", // "briefing_doc" | "study_guide" | "blog_post" | "custom"
+  customPrompt: "...",    // required when format is "custom"
+  language: "en",
 });
 
-// Interactive
+// Slide Deck
+const { artifactId } = await client.artifacts.createSlideDeck(notebookId, {
+  format: "detailed_deck", // "detailed_deck" | "presenter_slides"
+  length: "default",       // "default" | "short"
+});
+
+// Infographic
+const { artifactId } = await client.artifacts.createInfographic(notebookId, {
+  orientation: "landscape", // "landscape" | "portrait" | "square"
+  detail: "standard",       // "concise" | "standard" | "detailed"
+  style: "professional",    // "auto_select" | "professional" | "bento_grid" | ...
+});
+
+// Data Table
+const { artifactId } = await client.artifacts.createDataTable(notebookId);
+
+// Quiz / Flashcards
 const { artifactId } = await client.artifacts.createQuiz(notebookId);
 const { artifactId } = await client.artifacts.createFlashcards(notebookId);
 ```
 
-**`AudioFormat`**
+### `client.artifacts.createMindMap(notebookId, sourceIds?)`
 
-| Value | Description |
-|---|---|
-| `DEEP_DIVE` | Two-host conversational podcast |
+Mind maps are **synchronous** — content is generated and returned immediately, then saved as a note. Returns the saved `Note`. Retrieve existing mind maps with `client.notes.listMindMaps()`.
 
-**`AudioLength`**
+```ts
+const note = await client.artifacts.createMindMap(notebookId);
+const json = JSON.parse(note.content);
 
-| Value | Description |
-|---|---|
-| `DEFAULT` | Standard length |
-| `SHORT` | Shorter version |
-
-**`VideoFormat`**
-
-| Value | Description |
-|---|---|
-| `EXPLAINER` | Short explainer video |
+// List previously generated mind maps
+const mindMaps = await client.notes.listMindMaps(notebookId);
+```
 
 ### `client.artifacts.list(notebookId)`
 
@@ -240,12 +253,19 @@ await client.artifacts.waitUntilReady(notebookId, artifactId, 600, 5); // 10min 
 
 ```ts
 // Returns Buffer
-const mp3 = await client.artifacts.downloadAudio(notebookId, artifactId);
-const mp4 = await client.artifacts.downloadVideo(notebookId, artifactId);
+const mp3  = await client.artifacts.downloadAudio(notebookId, artifactId);
+const mp4  = await client.artifacts.downloadVideo(notebookId, artifactId);
+const pdf  = await client.artifacts.downloadSlideDeck(notebookId, artifactId, "pdf");
+const pptx = await client.artifacts.downloadSlideDeck(notebookId, artifactId, "pptx");
+const png  = await client.artifacts.downloadInfographic(notebookId, artifactId);
 
 // Returns string
 const markdown = await client.artifacts.getReportMarkdown(notebookId, artifactId);
-const html     = await client.artifacts.getInteractiveHtml(notebookId, artifactId);
+const html     = await client.artifacts.getInteractiveHtml(notebookId, artifactId); // quiz/flashcards
+
+// Returns DataTableContent | null
+const table = await client.artifacts.getDataTableContent(notebookId, artifactId);
+// { headers: string[], rows: string[][] }
 ```
 
 ---
@@ -334,22 +354,45 @@ if (result.status === "completed") {
 
 ## Notes
 
-### `client.notes.create(notebookId, content)`
+User-created text notes. Distinct from AI-generated artifacts — notes are written by the user via "Add note" in the UI.
+
+### `client.notes.list(notebookId)`
+
+Returns all user-created text notes. Mind maps are excluded.
 
 ```ts
-const { noteId } = await client.notes.create(notebookId, "# My Note\n\nContent here.");
+const notes = await client.notes.list(notebookId);
+// Note[] — { id, title, content, createdAt, updatedAt }
 ```
 
-### `client.notes.update(notebookId, noteId, content)`
+### `client.notes.listMindMaps(notebookId)`
+
+Returns mind maps saved in the notebook. Mind maps are stored as notes internally but contain JSON with `children`/`nodes` keys.
 
 ```ts
-await client.notes.update(notebookId, noteId, "Updated content.");
+const mindMaps = await client.notes.listMindMaps(notebookId);
+for (const mm of mindMaps) {
+  const json = JSON.parse(mm.content);
+}
+```
+
+### `client.notes.create(notebookId, content, title?)`
+
+```ts
+const note = await client.notes.create(notebookId, "# My Note\n\nContent here.", "My Note");
+console.log(note.id);
+```
+
+### `client.notes.update(notebookId, noteId, content, title?)`
+
+```ts
+await client.notes.update(notebookId, note.id, "Updated content.", "New Title");
 ```
 
 ### `client.notes.delete(notebookId, noteId)`
 
 ```ts
-await client.notes.delete(notebookId, noteId);
+await client.notes.delete(notebookId, note.id);
 ```
 
 ---

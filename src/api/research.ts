@@ -215,7 +215,9 @@ export class ResearchAPI {
     if (!webSources.length && !reportSources.length) return [];
 
     const sourceArray: unknown[] = [
-      ...reportSources.map((s) => buildReportEntry(s.title, s.reportMarkdown!)),
+      ...reportSources
+        .filter((s) => s.reportMarkdown)
+        .map((s) => buildReportEntry(s.title, s.reportMarkdown as string)),
       ...webSources.map((s) => buildWebEntry(s.url, s.title)),
     ];
 

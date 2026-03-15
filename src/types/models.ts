@@ -154,13 +154,6 @@ export interface Note {
   updatedAt: Date | null;
 }
 
-export interface MindMap {
-  id: string;
-  title: string | null;
-  content: string;
-  createdAt: Date | null;
-}
-
 // ---------------------------------------------------------------------------
 // Parsers (from raw API responses)
 // ---------------------------------------------------------------------------

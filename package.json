@@ -1,6 +1,6 @@
 {
   "name": "notebooklm-sdk",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "TypeScript SDK for NotebookLM API.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -55,10 +55,14 @@
     "format:check": "biome format .",
     "typecheck": "tsc --noEmit",
     "login": "tsx src/bin.ts login",
-    "prepublishOnly": "bun run test && bun run build"
+    "prepublishOnly": "bun run test && bun run build",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "bun run build && changeset publish --provenance"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
+    "@changesets/cli": "^2.30.0",
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "4.1.0",
     "dotenv-cli": "^11.0.0",
@@ -87,5 +91,9 @@
   "bugs": {
     "url": "https://github.com/agmmnn/notebooklm-sdk/issues"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }

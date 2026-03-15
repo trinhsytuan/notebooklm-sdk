@@ -4,7 +4,10 @@ const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];
 console.log(`Notebook: ${nb.title}`);
 
-const result = await client.chat.ask(nb.id, "What is this notebook about? Give a 1-sentence summary.");
+const result = await client.chat.ask(
+  nb.id,
+  "What is this notebook about? Give a 1-sentence summary.",
+);
 console.log(`Answer: ${result.answer}`);
 console.log(`References: ${result.references.length}`);
 

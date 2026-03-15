@@ -1,103 +1,95 @@
 import type { RPCCore } from "../rpc/core.js";
 import { RPCMethod } from "../types/enums.js";
-import type { MindMap, Note } from "../types/models.js";
-import { parseNote } from "../types/models.js";
+import type { Note } from "../types/models.js";
 
 export class NotesAPI {
   constructor(private readonly rpc: RPCCore) {}
 
-  async list(notebookId: string): Promise<{ notes: Note[]; mindMaps: MindMap[] }> {
-    const params = [notebookId, [2]];
-    const result = await this.rpc.call(RPCMethod.GET_NOTES_AND_MIND_MAPS, params, {
-      sourcePath: `/notebook/${notebookId}`,
-    });
-
-    const notes: Note[] = [];
-    const mindMaps: MindMap[] = [];
-
-    if (!Array.isArray(result)) return { notes, mindMaps };
-
-    try {
-      // Notes at result[0], mind maps at result[1]
-      const notesData = result[0] as unknown[][];
-      if (Array.isArray(notesData)) {
-        for (const n of notesData) {
-          if (Array.isArray(n)) notes.push(parseNote(n));
-        }
-      }
-
-      const mapsData = result[1] as unknown[][];
-      if (Array.isArray(mapsData)) {
-        for (const m of mapsData) {
-          if (Array.isArray(m)) {
-            // Skip deleted items: [id, null, 2]
-            if (m[1] === null && m[2] === 2) continue;
-            // Content is either m[1] (string) or m[1][1] (nested array form)
-            const content =
-              typeof m[1] === "string"
-                ? m[1]
-                : Array.isArray(m[1]) && typeof m[1][1] === "string"
-                  ? (m[1][1] as string)
-                  : "";
-            mindMaps.push({
-              id: typeof m[0] === "string" ? (m[0] as string) : "",
-              title: typeof m[2] === "string" ? (m[2] as string) : null,
-              content,
-              createdAt:
-                Array.isArray(m[3]) && typeof m[3][0] === "number"
-                  ? new Date((m[3][0] as number) * 1000)
-                  : null,
-            });
-          }
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
-
-    return { notes, mindMaps };
+  async list(notebookId: string): Promise<Note[]> {
+    const all = await this._fetchAll(notebookId);
+    return all.filter((n) => !this._isMindMap(n.content));
   }
 
-  /** Get the parsed JSON content of a mind map. Returns null if not found. */
-  async getMindMapContent(notebookId: string, mindMapId?: string): Promise<unknown | null> {
-    const { mindMaps } = await this.list(notebookId);
-    if (!mindMaps.length) return null;
-    const mm = mindMapId ? mindMaps.find((m) => m.id === mindMapId) : mindMaps[0];
-    if (!mm?.content) return null;
-    try {
-      return JSON.parse(mm.content);
-    } catch {
-      return null;
-    }
+  async listMindMaps(notebookId: string): Promise<Note[]> {
+    const all = await this._fetchAll(notebookId);
+    return all.filter((n) => this._isMindMap(n.content));
   }
 
   async create(notebookId: string, content: string, title?: string): Promise<Note> {
-    const params = [notebookId, content, title ?? null, [2]];
-    const result = await this.rpc.call(RPCMethod.CREATE_NOTE, params, {
+    // CREATE_NOTE ignores content/title; creates an empty note and returns the ID.
+    // We must call UPDATE_NOTE afterwards to set actual content and title.
+    const createParams = [notebookId, "", [1], null, "New Note"];
+    const result = await this.rpc.call(RPCMethod.CREATE_NOTE, createParams, {
       sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
     });
 
-    if (Array.isArray(result)) return parseNote(result as unknown[]);
-    throw new Error("Could not parse note creation response");
+    const noteId: string | null =
+      Array.isArray(result) && Array.isArray(result[0]) && typeof result[0][0] === "string"
+        ? (result[0][0] as string)
+        : Array.isArray(result) && typeof result[0] === "string"
+          ? (result[0] as string)
+          : null;
+
+    if (!noteId) throw new Error("CREATE_NOTE did not return a note ID");
+
+    await this.update(notebookId, noteId, content, title ?? "New Note");
+    return { id: noteId, title: title ?? null, content, createdAt: null, updatedAt: new Date() };
   }
 
   async update(notebookId: string, noteId: string, content: string, title?: string): Promise<Note> {
-    const params = [notebookId, noteId, content, title ?? null, [2]];
-    const result = await this.rpc.call(RPCMethod.UPDATE_NOTE, params, {
+    const params = [notebookId, noteId, [[[content, title ?? "New Note", [], 0]]]];
+    await this.rpc.call(RPCMethod.UPDATE_NOTE, params, {
       sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
     });
-
-    if (Array.isArray(result)) return parseNote(result as unknown[]);
-    // If update returns null/void, return a stub
     return { id: noteId, title: title ?? null, content, createdAt: null, updatedAt: new Date() };
   }
 
   async delete(notebookId: string, noteId: string): Promise<boolean> {
-    const params = [notebookId, noteId, [2]];
+    const params = [notebookId, null, [noteId]];
     await this.rpc.call(RPCMethod.DELETE_NOTE, params, {
       sourcePath: `/notebook/${notebookId}`,
       allowNull: true,
     });
     return true;
+  }
+
+  private async _fetchAll(notebookId: string): Promise<Note[]> {
+    const result = await this.rpc.call(RPCMethod.GET_NOTES_AND_MIND_MAPS, [notebookId], {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+    if (!Array.isArray(result) || !Array.isArray(result[0])) return [];
+    const notes: Note[] = [];
+    for (const item of result[0] as unknown[][]) {
+      if (!Array.isArray(item) || typeof item[0] !== "string") continue;
+      if (item[1] === null && item[2] === 2) continue; // deleted
+      const content = this._extractContent(item);
+      notes.push(this._parseItem(item, notebookId, content));
+    }
+    return notes;
+  }
+
+  private _isMindMap(content: string): boolean {
+    return content.includes('"children":') || content.includes('"nodes":');
+  }
+
+  private _extractContent(item: unknown[]): string {
+    if (typeof item[1] === "string") return item[1];
+    if (Array.isArray(item[1]) && typeof item[1][1] === "string") return item[1][1] as string;
+    return "";
+  }
+
+  private _parseItem(item: unknown[], _notebookId: string, content: string): Note {
+    // New format: item[1] is [note_id, content, metadata, null, title]
+    // Old format: item[1] is a plain string (no title available)
+    const inner = Array.isArray(item[1]) ? (item[1] as unknown[]) : null;
+    const title = inner && typeof inner[4] === "string" && inner[4] ? (inner[4] as string) : null;
+    const createdAt =
+      Array.isArray(item[3]) && typeof item[3][0] === "number"
+        ? new Date((item[3][0] as number) * 1000)
+        : null;
+    return { id: item[0] as string, title, content, createdAt, updatedAt: null };
   }
 }

@@ -138,6 +138,7 @@ bun run examples/slide-deck.ts      # generate and download PDF / PPTX
 bun run examples/infographic.ts     # generate and download a PNG infographic
 bun run examples/mind-map.ts        # generate and download mind map JSON
 bun run examples/data-table.ts      # generate and download a CSV data table
+bun run examples/notes.ts           # create, update, list, and delete notes
 bun run examples/research.ts        # web research and import sources
 bun run examples/research-and-chat.ts  # research → import → chat
 bun run examples/full-lifecycle.ts  # create, add sources, chat, delete

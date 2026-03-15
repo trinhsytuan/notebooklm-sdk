@@ -1,6 +1,5 @@
 import * as fs from "node:fs/promises";
-import { NotebookLMClient } from "../src/index.js";
-import { InfographicStyle, InfographicOrientation } from "../src/index.js";
+import { InfographicOrientation, InfographicStyle, NotebookLMClient } from "../src/index.js";
 
 const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];

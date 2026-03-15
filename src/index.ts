@@ -104,7 +104,6 @@ export type {
   ChatReference,
   ConversationTurn,
   GenerationStatus,
-  MindMap,
   Note,
   Notebook,
   NotebookDescription,

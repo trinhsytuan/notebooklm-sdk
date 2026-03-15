@@ -1,6 +1,5 @@
 import * as fs from "node:fs/promises";
-import { NotebookLMClient } from "../src/index.js";
-import { AudioFormat, AudioLength } from "../src/index.js";
+import { AudioFormat, AudioLength, NotebookLMClient } from "../src/index.js";
 
 const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];

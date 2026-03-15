@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { writeFileSync } from "node:fs";
-import { DEFAULT_SESSION_DIR, DEFAULT_SESSION_FILE } from "./auth/browser.js";
-import { login } from "./auth/browser.js";
+import { DEFAULT_SESSION_DIR, DEFAULT_SESSION_FILE, login } from "./auth/browser.js";
 import { connect } from "./auth.js";
 
 async function run() {

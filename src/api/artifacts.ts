@@ -30,8 +30,9 @@ import {
   VideoStyle,
 } from "../types/enums.js";
 import { ArtifactNotReadyError } from "../types/errors.js";
-import type { Artifact, GenerationStatus } from "../types/models.js";
+import type { Artifact, GenerationStatus, Note } from "../types/models.js";
 import { parseArtifact } from "../types/models.js";
+import type { NotesAPI } from "./notes.js";
 
 export interface CreateAudioOptions {
   format?: AudioFormatValue;
@@ -108,6 +109,7 @@ export class ArtifactsAPI {
   constructor(
     private readonly rpc: RPCCore,
     private readonly auth: AuthTokens,
+    private readonly notes: NotesAPI,
   ) {}
 
   async list(notebookId: string): Promise<Artifact[]> {
@@ -358,10 +360,24 @@ export class ArtifactsAPI {
       [2],
       notebookId,
       [
-        null, null,
+        null,
+        null,
         ArtifactTypeCode.DATA_TABLE,
         triple,
-        null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         [null, [opts.instructions ?? null, language]],
       ],
     ];
@@ -430,11 +446,12 @@ export class ArtifactsAPI {
     return this._callGenerate(notebookId, params);
   }
 
-  async createMindMap(notebookId: string, sourceIds?: string[]): Promise<GenerationStatus> {
+  async createMindMap(notebookId: string, sourceIds?: string[]): Promise<Note> {
     const ids = sourceIds ?? (await this.rpc.getSourceIds(notebookId));
     const triple = tripleNest(ids);
 
-    // Mind map uses GENERATE_MIND_MAP RPC with a completely different param layout
+    // GENERATE_MIND_MAP returns content directly — it does NOT persist anything.
+    // We extract the JSON from result[0][0] and save it as a note.
     const params = [
       triple,
       null,
@@ -449,7 +466,23 @@ export class ArtifactsAPI {
       sourcePath: `/notebook/${notebookId}`,
       allowNull: true,
     });
-    return this._parseGenerationResult(result);
+
+    const mindMapJson: string | null =
+      Array.isArray(result) && Array.isArray(result[0]) && typeof result[0][0] === "string"
+        ? (result[0][0] as string)
+        : null;
+
+    if (!mindMapJson) throw new Error("Mind map generation returned no content");
+
+    let title = "Mind Map";
+    try {
+      const parsed = JSON.parse(mindMapJson) as Record<string, unknown>;
+      if (typeof parsed["name"] === "string") title = parsed["name"];
+    } catch {
+      // keep default title
+    }
+
+    return this.notes.create(notebookId, mindMapJson, title);
   }
 
   // ---------------------------------------------------------------------------
@@ -527,7 +560,9 @@ export class ArtifactsAPI {
   ): Promise<Buffer> {
     const rawList = await this._listRaw(notebookId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = rawList.find((a: any) => a[0] === artifactId && a[2] === ArtifactTypeCode.SLIDE_DECK) as any;
+    const raw = rawList.find(
+      (a: any) => a[0] === artifactId && a[2] === ArtifactTypeCode.SLIDE_DECK,
+    ) as any;
     if (!raw) throw new ArtifactNotReadyError("slide_deck", { artifactId });
 
     // artifact[16] = [config, title, slides, pdf_url, pptx_url]
@@ -545,7 +580,9 @@ export class ArtifactsAPI {
   async downloadInfographic(notebookId: string, artifactId: string): Promise<Buffer> {
     const rawList = await this._listRaw(notebookId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = rawList.find((a: any) => a[0] === artifactId && a[2] === ArtifactTypeCode.INFOGRAPHIC) as any[];
+    const raw = rawList.find(
+      (a: any) => a[0] === artifactId && a[2] === ArtifactTypeCode.INFOGRAPHIC,
+    ) as any[];
     if (!raw) throw new ArtifactNotReadyError("infographic", { artifactId });
 
     // Scan in reverse for the nested list containing the image URL
@@ -569,7 +606,10 @@ export class ArtifactsAPI {
   }
 
   /** Get parsed headers and rows from a completed data table artifact. */
-  async getDataTableContent(notebookId: string, artifactId: string): Promise<DataTableContent | null> {
+  async getDataTableContent(
+    notebookId: string,
+    artifactId: string,
+  ): Promise<DataTableContent | null> {
     const artifacts = await this._listRaw(notebookId);
     const raw = artifacts.find(
       (a) => Array.isArray(a) && a[0] === artifactId && a[2] === ArtifactTypeCode.DATA_TABLE,
