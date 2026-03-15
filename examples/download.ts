@@ -47,41 +47,47 @@ for (const mm of mindMaps) {
   }
 }
 
+function slugify(a: Artifact): string {
+  const base = a.title ? a.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase().replace(/^-|-$/g, "") : a.id;
+  return `${base}`;
+}
+
 async function downloadArtifact(
   client: Awaited<ReturnType<typeof NotebookLMClient.connect>>,
   a: Artifact,
 ): Promise<string | null> {
   const { notebookId: nbId, id } = a;
+  const name = slugify(a);
 
   switch (a.kind) {
     case "audio": {
       const buf = await client.artifacts.downloadAudio(nbId, id);
-      const file = path.join(DOWNLOAD_DIR, `${id}.mp3`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.mp3`);
       await fs.writeFile(file, buf);
       return file;
     }
     case "video": {
       const buf = await client.artifacts.downloadVideo(nbId, id);
-      const file = path.join(DOWNLOAD_DIR, `${id}.mp4`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.mp4`);
       await fs.writeFile(file, buf);
       return file;
     }
     case "slide_deck": {
       const buf = await client.artifacts.downloadSlideDeck(nbId, id, "pdf");
-      const file = path.join(DOWNLOAD_DIR, `${id}.pdf`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.pdf`);
       await fs.writeFile(file, buf);
       return file;
     }
     case "infographic": {
       const buf = await client.artifacts.downloadInfographic(nbId, id);
-      const file = path.join(DOWNLOAD_DIR, `${id}.png`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.png`);
       await fs.writeFile(file, buf);
       return file;
     }
     case "report": {
       const md = await client.artifacts.getReportMarkdown(nbId, id);
       if (!md) return null;
-      const file = path.join(DOWNLOAD_DIR, `${id}.md`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.md`);
       await fs.writeFile(file, md);
       return file;
     }
@@ -89,7 +95,7 @@ async function downloadArtifact(
     case "flashcards": {
       const html = await client.artifacts.getInteractiveHtml(nbId, id);
       if (!html) return null;
-      const file = path.join(DOWNLOAD_DIR, `${id}.html`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.html`);
       await fs.writeFile(file, html);
       return file;
     }
@@ -97,7 +103,7 @@ async function downloadArtifact(
       const table = await client.artifacts.getDataTableContent(nbId, id);
       if (!table) return null;
       const csv = [table.headers, ...table.rows].map((r) => r.join(",")).join("\n");
-      const file = path.join(DOWNLOAD_DIR, `${id}.csv`);
+      const file = path.join(DOWNLOAD_DIR, `${name}.csv`);
       await fs.writeFile(file, csv);
       return file;
     }
