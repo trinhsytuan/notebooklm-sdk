@@ -29,9 +29,7 @@ export function loadCookiesFromFile(filePath: string): CookieMap {
   try {
     raw = readFileSync(filePath, "utf-8");
   } catch {
-    throw new AuthError(
-      `Session file not found: ${filePath}\nRun: npx notebooklm-sdk login`,
-    );
+    throw new AuthError(`Session file not found: ${filePath}\nRun: npx notebooklm-sdk login`);
   }
   return extractCookiesFromStorageState(JSON.parse(raw));
 }
@@ -228,9 +226,7 @@ export async function connect(opts: ConnectOptions = {}): Promise<AuthTokens> {
     } else if (envCookies) {
       cookieMap = loadCookiesFromString(envCookies);
     } else {
-      throw new AuthError(
-        "No session found. Run: npx notebooklm-sdk login",
-      );
+      throw new AuthError("No session found. Run: npx notebooklm-sdk login");
     }
   }
 

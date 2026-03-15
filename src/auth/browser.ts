@@ -53,9 +53,7 @@ export async function login(opts: LoginOptions = {}): Promise<{
   try {
     chromium.executablePath();
   } catch {
-    throw new Error(
-      "Playwright browser not found. Run: npx playwright install chromium",
-    );
+    throw new Error("Playwright browser not found. Run: npx playwright install chromium");
   }
 
   // Ensure the session directory exists
