@@ -1,70 +1,22 @@
 import { NotebookLMClient } from "../src/index.js";
 
-async function main() {
-  console.log("\n🔄 Connecting to NotebookLM...");
-  try {
-    const client = await NotebookLMClient.connect();
-    console.log("✅ Connected successfully!");
+const client = await NotebookLMClient.connect();
+const nb = (await client.notebooks.list())[0];
+console.log(`Notebook: ${nb.title}`);
 
-    const notebooks = await client.notebooks.list();
+await client.research.start(nb.id, "Latest AI models 2026", "web", "fast");
+console.log("Researching...");
 
-    if (notebooks.length === 0) {
-      console.log("No notebooks found. Please create one first.");
-      return;
-    }
-
-    const nb = notebooks[0];
-    console.log(`\n📚 Using notebook: "${nb.title}"`);
-
-    // Start a fast web research session
-    console.log("\n🔍 Starting fast web research for 'Latest AI models'...");
-    const researchTask = await client.research.start(nb.id, "Latest AI models", "web", "fast");
-
-    if (!researchTask) {
-      console.log("Failed to start research.");
-      return;
-    }
-
-    console.log(`Task started: ${researchTask.taskId}`);
-
-    // Poll for results
-    console.log("\n⏳ Polling for research results...");
-    let result = await client.research.poll(nb.id);
-    let attempts = 0;
-
-    while (result.status === "in_progress" && attempts < 15) {
-      console.log("Still researching...");
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      result = await client.research.poll(nb.id);
-      attempts++;
-    }
-
-    if (result.status === "completed") {
-      console.log("\n✅ Research completed!");
-      console.log(`Summary: ${result.summary || "No summary provided."}`);
-      console.log(`Found ${result.sources.length} sources.`);
-
-      if (result.sources.length > 0) {
-        console.log("\nTop 3 sources:");
-        for (const src of result.sources.slice(0, 3)) {
-          console.log(`- ${src.title || "Untitled"}`);
-          if (src.url) console.log(`  ${src.url}`);
-        }
-
-        // Import top 1 source
-        console.log("\n📥 Importing the top source to notebook...");
-        const imported = await client.research.importSources(nb.id, result.taskId!, [
-          result.sources[0],
-        ]);
-        console.log(`Imported ${imported.length} sources.`);
-      }
-    } else {
-      console.log("\n⏳ Research did not complete in time or had no result.");
-    }
-  } catch (error) {
-    console.error("\n❌ Error connecting or fetching data:");
-    console.error(error);
-  }
+let result = await client.research.poll(nb.id);
+while (result.status === "in_progress") {
+  await new Promise((r) => setTimeout(r, 3000));
+  result = await client.research.poll(nb.id);
 }
 
-main();
+console.log(`Found ${result.sources.length} sources`);
+for (const src of result.sources.slice(0, 3)) {
+  console.log(`  - ${src.title}`);
+}
+
+const imported = await client.research.importSources(nb.id, result.taskId!, result.sources.slice(0, 3));
+console.log(`Imported ${imported.length} sources into notebook`);
