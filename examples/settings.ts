@@ -1,9 +1,7 @@
 import { NotebookLMClient } from "../src/index.js";
 
 async function main() {
-  const client = await NotebookLMClient.connect({
-    cookiesFile: "storage_state.json",
-  });
+  const client = await NotebookLMClient.connect();
   console.log("✅ Connected\n");
 
   const lang = await client.settings.getOutputLanguage();

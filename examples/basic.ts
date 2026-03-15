@@ -3,11 +3,7 @@ import { NotebookLMClient } from "../src/index.js";
 async function main() {
   console.log("\n🔄 Connecting to NotebookLM...");
   try {
-    // 1. Connect to NotebookLM
-    // Prioritizes storage_state.json if it exists, otherwise falls back to NOTEBOOKLM_COOKIE env var
-    const client = await NotebookLMClient.connect({
-      cookiesFile: "storage_state.json",
-    });
+    const client = await NotebookLMClient.connect();
     console.log("✅ Connected successfully!");
 
     // 4. Use the SDK! List existing notebooks

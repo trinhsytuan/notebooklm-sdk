@@ -20,10 +20,12 @@ export interface ClientOptions {
  *
  * @example
  * ```ts
- * const client = await NotebookLMClient.connect({
- *   cookies: process.env.NOTEBOOKLM_COOKIES,
- * });
+ * // After running `npx notebooklm-sdk login` once:
+ * const client = await NotebookLMClient.connect();
  * const notebooks = await client.notebooks.list();
+ *
+ * // Or with explicit credentials:
+ * const client = await NotebookLMClient.connect({ cookiesFile: './session.json' });
  * ```
  */
 export class NotebookLMClient {
@@ -56,7 +58,7 @@ export class NotebookLMClient {
    * Fetches CSRF and session tokens from the NotebookLM homepage.
    */
   static async connect(
-    opts: ConnectOptions,
+    opts: ConnectOptions = {},
     clientOpts: ClientOptions = {},
   ): Promise<NotebookLMClient> {
     const auth = await connect(opts);

@@ -1,9 +1,7 @@
 import { NotebookLMClient } from "../src/index.js";
 
 async function main() {
-  const client = await NotebookLMClient.connect({
-    cookiesFile: "storage_state.json",
-  });
+  const client = await NotebookLMClient.connect();
   const notebooks = await client.notebooks.list();
   const nb = notebooks[0]!;
   console.log(`Notebook: ${nb.title}`);

@@ -13,9 +13,7 @@ import { NotebookLMClient } from "../src/index.js";
 import type { Artifact } from "../src/types/models.js";
 
 async function main() {
-  const client = await NotebookLMClient.connect({
-    cookiesFile: "storage_state.json",
-  });
+  const client = await NotebookLMClient.connect();
   console.log("✅ Connected\n");
 
   const DOWNLOAD_DIR = path.join(process.cwd(), "downloads");

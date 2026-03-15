@@ -1,5 +1,10 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { AuthError } from "./types/errors.js";
+
+/** Default session file written by `npx notebooklm-sdk login`. */
+const DEFAULT_SESSION_FILE = join(homedir(), ".notebooklm", "session.json");
 
 export interface CookieMap {
   [key: string]: string;
@@ -25,7 +30,7 @@ export function loadCookiesFromFile(filePath: string): CookieMap {
     raw = readFileSync(filePath, "utf-8");
   } catch {
     throw new AuthError(
-      `Cookie file not found: ${filePath}\n` + "Provide valid Playwright storage state JSON.",
+      `Session file not found: ${filePath}\nRun: npx notebooklm-sdk login`,
     );
   }
   return extractCookiesFromStorageState(JSON.parse(raw));
@@ -89,8 +94,7 @@ function extractCookiesFromStorageState(storageState: {
 
   if (!cookies["SID"]) {
     throw new AuthError(
-      "Missing required cookie: SID. " +
-        "Provide valid Playwright storage state with Google cookies.",
+      "Missing required cookie: SID. Session may be invalid or expired.\nRun: npx notebooklm-sdk login",
     );
   }
   return cookies;
@@ -152,7 +156,7 @@ function extractCsrfToken(html: string, finalUrl: string): string {
   const match = /"SNlM0e"\s*:\s*"([^"]+)"/.exec(html);
   if (!match?.[1]) {
     if (isGoogleAuthRedirect(finalUrl) || html.includes("accounts.google.com")) {
-      throw new AuthError("Authentication expired or invalid. Cookies may need to be refreshed.");
+      throw new AuthError("Session expired or invalid.\nRun: npx notebooklm-sdk login");
     }
     throw new AuthError("CSRF token (SNlM0e) not found in NotebookLM page HTML.");
   }
@@ -163,7 +167,7 @@ function extractSessionId(html: string, finalUrl: string): string {
   const match = /"FdrFJe"\s*:\s*"([^"]+)"/.exec(html);
   if (!match?.[1]) {
     if (isGoogleAuthRedirect(finalUrl) || html.includes("accounts.google.com")) {
-      throw new AuthError("Authentication expired or invalid. Cookies may need to be refreshed.");
+      throw new AuthError("Session expired or invalid.\nRun: npx notebooklm-sdk login");
     }
     throw new AuthError("Session ID (FdrFJe) not found in NotebookLM page HTML.");
   }
@@ -187,7 +191,7 @@ export interface ConnectOptions {
   cookiesObject?: CookieMap | { cookies?: Array<{ name: string; value: string; domain: string }> };
 }
 
-export async function connect(opts: ConnectOptions): Promise<AuthTokens> {
+export async function connect(opts: ConnectOptions = {}): Promise<AuthTokens> {
   let cookieMap: CookieMap;
   let googleCookieHeader: string | null = null;
 
@@ -206,13 +210,26 @@ export async function connect(opts: ConnectOptions): Promise<AuthTokens> {
       cookieMap = loadCookiesFromMap(opts.cookiesObject as CookieMap);
     }
   } else {
-    // Fallback: check environment variable
+    // Auto-discovery: ~/.notebooklm/session.json → ./storage_state.json → env var
     const envCookies = process.env["NOTEBOOKLM_COOKIES"];
-    if (envCookies) {
+    const envFile = process.env["NOTEBOOKLM_COOKIES_FILE"];
+    if (envFile) {
+      cookieMap = loadCookiesFromFile(envFile);
+    } else if (existsSync(DEFAULT_SESSION_FILE)) {
+      const raw = readFileSync(DEFAULT_SESSION_FILE, "utf-8");
+      const storageState = JSON.parse(raw);
+      cookieMap = loadCookiesFromObject(storageState);
+      googleCookieHeader = buildGoogleCookieHeader(storageState);
+    } else if (existsSync("storage_state.json")) {
+      const raw = readFileSync("storage_state.json", "utf-8");
+      const storageState = JSON.parse(raw);
+      cookieMap = loadCookiesFromObject(storageState);
+      googleCookieHeader = buildGoogleCookieHeader(storageState);
+    } else if (envCookies) {
       cookieMap = loadCookiesFromString(envCookies);
     } else {
       throw new AuthError(
-        "No cookies provided. Pass cookies, cookiesFile, or cookiesObject to connect().",
+        "No session found. Run: npx notebooklm-sdk login",
       );
     }
   }

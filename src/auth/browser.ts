@@ -1,10 +1,18 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { type BrowserContext, chromium, type Page } from "playwright";
 import { type CookieMap, loadCookiesFromObject } from "../auth.js";
+
+/** Default directory for storing NotebookLM session files (~/.notebooklm). */
+export const DEFAULT_SESSION_DIR = join(homedir(), ".notebooklm");
+/** Default session file path (~/.notebooklm/session.json). */
+export const DEFAULT_SESSION_FILE = join(DEFAULT_SESSION_DIR, "session.json");
 
 export interface LoginOptions {
   /**
    * Path to a directory for a persistent browser profile.
-   * If provided, session remains logged in for future calls.
+   * Defaults to ~/.notebooklm/.auth_profile.
    */
   persistFolder?: string;
   /**
@@ -35,7 +43,25 @@ export async function login(opts: LoginOptions = {}): Promise<{
   storageState: any;
   cookieHeader: string;
 }> {
-  const { persistFolder, headless = false, browserType = "chromium" } = opts;
+  const {
+    persistFolder = join(DEFAULT_SESSION_DIR, ".auth_profile"),
+    headless = false,
+    browserType = "chromium",
+  } = opts;
+
+  // Pre-flight: verify Playwright browser is installed
+  try {
+    chromium.executablePath();
+  } catch {
+    throw new Error(
+      "Playwright browser not found. Run: npx playwright install chromium",
+    );
+  }
+
+  // Ensure the session directory exists
+  if (!existsSync(DEFAULT_SESSION_DIR)) {
+    mkdirSync(DEFAULT_SESSION_DIR, { recursive: true });
+  }
 
   let context: BrowserContext;
 
@@ -44,18 +70,10 @@ export async function login(opts: LoginOptions = {}): Promise<{
     args: ["--disable-blink-features=AutomationControlled"],
   };
 
-  if (persistFolder) {
-    context = await chromium.launchPersistentContext(persistFolder, {
-      ...launchOptions,
-      channel: browserType === "msedge" ? "msedge" : undefined,
-    });
-  } else {
-    const browser = await chromium.launch({
-      ...launchOptions,
-      channel: browserType === "msedge" ? "msedge" : undefined,
-    });
-    context = await browser.newContext();
-  }
+  context = await chromium.launchPersistentContext(persistFolder, {
+    ...launchOptions,
+    channel: browserType === "msedge" ? "msedge" : undefined,
+  });
 
   const page = context.pages()[0] || (await context.newPage());
   await page.goto(NOTEBOOKLM_URL);
