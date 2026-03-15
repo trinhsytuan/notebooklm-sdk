@@ -18,6 +18,7 @@ import {
   AudioFormat,
   AudioLength,
   artifactStatusFromCode,
+  ExportType,
   InfographicDetail,
   InfographicOrientation,
   InfographicStyle,
@@ -692,6 +693,26 @@ export class ArtifactsAPI {
 
   // ---------------------------------------------------------------------------
   // Internal
+  /** Export a completed report artifact to Google Docs. Returns the created document URL. */
+  async exportReport(notebookId: string, artifactId: string, title: string): Promise<string | null> {
+    const params = [null, artifactId, null, title, ExportType.DOCS];
+    const result = await this.rpc.call(RPCMethod.EXPORT_ARTIFACT, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+    return extractExportUrl(result);
+  }
+
+  /** Export a completed data table artifact to Google Sheets. Returns the created spreadsheet URL. */
+  async exportDataTable(notebookId: string, artifactId: string, title: string): Promise<string | null> {
+    const params = [null, artifactId, null, title, ExportType.SHEETS];
+    const result = await this.rpc.call(RPCMethod.EXPORT_ARTIFACT, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+    return extractExportUrl(result);
+  }
+
   // ---------------------------------------------------------------------------
 
   /**
@@ -798,6 +819,23 @@ function parseDataTable(rawData: unknown): DataTableContent {
   } catch (e) {
     throw new Error(`Failed to parse data table: ${e}`);
   }
+}
+
+function extractExportUrl(result: unknown): string | null {
+  if (!Array.isArray(result)) return null;
+  // Scan recursively for the first https URL
+  function findUrl(data: unknown, depth = 5): string | null {
+    if (depth <= 0 || data == null) return null;
+    if (typeof data === "string" && data.startsWith("https://")) return data;
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        const found = findUrl(item, depth - 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return findUrl(result);
 }
 
 function sleep(ms: number): Promise<void> {

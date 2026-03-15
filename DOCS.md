@@ -346,6 +346,16 @@ const table = await client.artifacts.getDataTableContent(notebookId, artifactId)
 // { headers: string[], rows: string[][] }
 ```
 
+### Export to Google Drive
+
+```ts
+// Export a report → Google Doc (returns URL)
+const url = await client.artifacts.exportReport(notebookId, artifactId, "My Report");
+
+// Export a data table → Google Sheets (returns URL)
+const url = await client.artifacts.exportDataTable(notebookId, artifactId, "My Table");
+```
+
 ### Revise a Slide
 
 Edit an individual slide in a completed slide deck using a natural language prompt.
