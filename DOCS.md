@@ -197,6 +197,27 @@ const isFresh = await client.sources.checkFreshness(notebookId, source.id);
 if (!isFresh) await client.sources.refresh(notebookId, source.id);
 ```
 
+### `client.sources.addDrive(notebookId, fileId, title, mimeType?)`
+
+Add a Google Drive file as a source. `fileId` is the ID from the Drive URL.
+
+```ts
+import { DriveMimeType } from "notebooklm-sdk";
+
+const source = await client.sources.addDrive(
+  notebookId,
+  "1abc123xyz",
+  "My Google Doc",
+  DriveMimeType.GOOGLE_DOC,        // default
+  // DriveMimeType.GOOGLE_SLIDES
+  // DriveMimeType.GOOGLE_SHEETS
+  // DriveMimeType.PDF
+);
+
+// Wait for processing:
+const ready = await client.sources.addDrive(notebookId, fileId, title, mimeType, { waitUntilReady: true });
+```
+
 ### `client.sources.getGuide(notebookId, sourceId)`
 
 Get the AI-generated Source Guide for a source — the same summary and keywords shown in the NotebookLM UI when you click a source.
@@ -281,6 +302,20 @@ const mindMaps = await client.notes.listMindMaps(notebookId);
 ```ts
 const artifacts = await client.artifacts.list(notebookId);
 // Artifact[]
+```
+
+### Filtered list helpers
+
+```ts
+const audio       = await client.artifacts.listAudio(notebookId);
+const video       = await client.artifacts.listVideo(notebookId);
+const reports     = await client.artifacts.listReports(notebookId);
+const quizzes     = await client.artifacts.listQuizzes(notebookId);
+const flashcards  = await client.artifacts.listFlashcards(notebookId);
+const infographics = await client.artifacts.listInfographics(notebookId);
+const slideDecks  = await client.artifacts.listSlideDecks(notebookId);
+const dataTables  = await client.artifacts.listDataTables(notebookId);
+// All return Artifact[]
 ```
 
 ### `client.artifacts.waitUntilReady(notebookId, artifactId, timeoutSecs?, pollIntervalSecs?)`
@@ -377,6 +412,37 @@ await client.chat.setMode(notebookId, ChatMode.CONCISE);
 | `CONCISE` | Short, direct answers |
 | `DETAILED` | Verbose, thorough answers |
 | `LEARNING_GUIDE` | Educational focus with longer responses |
+
+### `client.chat.configure(notebookId, goal, length, customPrompt?)`
+
+Low-level version of `setMode` — set goal and response length independently. Use this when you need a custom system prompt or a combination not covered by `ChatMode`.
+
+```ts
+import { ChatGoal, ChatResponseLength } from "notebooklm-sdk";
+
+// Custom instructions
+await client.chat.configure(
+  notebookId,
+  ChatGoal.CUSTOM,
+  ChatResponseLength.DEFAULT,
+  "You are a concise summarizer. Always respond in bullet points.",
+);
+
+// Learning guide with longer responses
+await client.chat.configure(notebookId, ChatGoal.LEARNING_GUIDE, ChatResponseLength.LONGER);
+```
+
+| `ChatGoal` | Description |
+|---|---|
+| `DEFAULT` | General purpose research |
+| `CUSTOM` | Custom system prompt (requires `customPrompt`) |
+| `LEARNING_GUIDE` | Educational focus |
+
+| `ChatResponseLength` | Description |
+|---|---|
+| `DEFAULT` | Standard |
+| `LONGER` | Verbose |
+| `SHORTER` | Concise |
 
 ---
 

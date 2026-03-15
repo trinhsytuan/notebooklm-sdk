@@ -142,6 +142,38 @@ export class ArtifactsAPI {
     return artifacts.find((a) => a.id === artifactId) ?? null;
   }
 
+  async listAudio(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "audio");
+  }
+
+  async listVideo(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "video");
+  }
+
+  async listReports(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "report");
+  }
+
+  async listQuizzes(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "quiz");
+  }
+
+  async listFlashcards(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "flashcards");
+  }
+
+  async listInfographics(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "infographic");
+  }
+
+  async listSlideDecks(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "slide_deck");
+  }
+
+  async listDataTables(notebookId: string): Promise<Artifact[]> {
+    return (await this.list(notebookId)).filter((a) => a.kind === "data_table");
+  }
+
   async delete(notebookId: string, artifactId: string): Promise<boolean> {
     const params = [[2], notebookId, artifactId];
     await this.rpc.call(RPCMethod.DELETE_ARTIFACT, params, {

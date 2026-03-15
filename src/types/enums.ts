@@ -236,6 +236,14 @@ export const ExportType = {
 } as const;
 export type ExportTypeValue = (typeof ExportType)[keyof typeof ExportType];
 
+export const DriveMimeType = {
+  GOOGLE_DOC: "application/vnd.google-apps.document",
+  GOOGLE_SLIDES: "application/vnd.google-apps.presentation",
+  GOOGLE_SHEETS: "application/vnd.google-apps.spreadsheet",
+  PDF: "application/pdf",
+} as const;
+export type DriveMimeTypeValue = (typeof DriveMimeType)[keyof typeof DriveMimeType];
+
 // ---------------------------------------------------------------------------
 // Internal mappings
 // ---------------------------------------------------------------------------
@@ -325,15 +333,35 @@ export type ChatModeValue = (typeof ChatMode)[keyof typeof ChatMode];
 
 // Internal goal/length codes used by the RPC
 const CHAT_MODE_PARAMS: Record<ChatModeValue, [goal: number, length: number]> = {
-  default:        [1, 1],
+  default: [1, 1],
   learning_guide: [3, 4],
-  concise:        [1, 5],
-  detailed:       [1, 4],
+  concise: [1, 5],
+  detailed: [1, 4],
 };
 
 export function chatModeToParams(mode: ChatModeValue): [goal: number, length: number] {
   return CHAT_MODE_PARAMS[mode];
 }
+
+export const ChatGoal = {
+  /** General purpose research and brainstorming. */
+  DEFAULT: 1,
+  /** Custom instructions (up to 10,000 characters). */
+  CUSTOM: 2,
+  /** Educational focus with learning-oriented responses. */
+  LEARNING_GUIDE: 3,
+} as const;
+export type ChatGoalValue = (typeof ChatGoal)[keyof typeof ChatGoal];
+
+export const ChatResponseLength = {
+  /** Standard response length. */
+  DEFAULT: 1,
+  /** Verbose, detailed responses. */
+  LONGER: 4,
+  /** Concise, brief responses. */
+  SHORTER: 5,
+} as const;
+export type ChatResponseLengthValue = (typeof ChatResponseLength)[keyof typeof ChatResponseLength];
 
 // ---------------------------------------------------------------------------
 // Sharing enums

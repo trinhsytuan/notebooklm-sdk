@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import type { AuthTokens } from "../auth.js";
 import type { RPCCore } from "../rpc/core.js";
-import { RPCMethod } from "../types/enums.js";
+import type { DriveMimeTypeValue } from "../types/enums.js";
+import { DriveMimeType, RPCMethod } from "../types/enums.js";
 import { SourceProcessingError, SourceTimeoutError } from "../types/errors.js";
 import type { Source, SourceFulltext, SourceGuide } from "../types/models.js";
 import { parseSource } from "../types/models.js";
@@ -104,6 +105,51 @@ export class SourcesAPI {
       title: title ?? null,
       url: null,
       kind: "pasted_text",
+      createdAt: null,
+      status: "processing",
+      _typeCode: null,
+    };
+  }
+
+  async addDrive(
+    notebookId: string,
+    fileId: string,
+    title: string,
+    mimeType: DriveMimeTypeValue = DriveMimeType.GOOGLE_DOC,
+    opts: AddSourceOptions = {},
+  ): Promise<Source> {
+    const sourceData = [
+      [fileId, mimeType, 1, title],
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      1,
+    ];
+    const params = [
+      [sourceData],
+      notebookId,
+      [2],
+      [1, null, null, null, null, null, null, null, null, null, [1]],
+    ];
+    const result = await this.rpc.call(RPCMethod.ADD_SOURCE, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+    const sourceId = extractSourceId(result);
+    if (opts.waitUntilReady) {
+      return this.waitUntilReady(notebookId, sourceId, opts.waitTimeout);
+    }
+    return {
+      id: sourceId,
+      title,
+      url: null,
+      kind: "unknown",
       createdAt: null,
       status: "processing",
       _typeCode: null,
@@ -273,7 +319,12 @@ export class SourcesAPI {
     if (Array.isArray(result[0]) && result[0].length > 1) {
       title = typeof result[0][1] === "string" ? result[0][1] : "";
       const meta = result[0][2] as unknown[];
-      if (Array.isArray(meta) && meta.length > 7 && Array.isArray(meta[7]) && typeof meta[7][0] === "string") {
+      if (
+        Array.isArray(meta) &&
+        meta.length > 7 &&
+        Array.isArray(meta[7]) &&
+        typeof meta[7][0] === "string"
+      ) {
         url = meta[7][0];
       }
     }

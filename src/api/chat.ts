@@ -1,7 +1,7 @@
 import type { AuthTokens } from "../auth.js";
 import type { RPCCore } from "../rpc/core.js";
-import { chatModeToParams, RPCMethod } from "../types/enums.js";
-import type { ChatModeValue } from "../types/enums.js";
+import type { ChatGoalValue, ChatModeValue, ChatResponseLengthValue } from "../types/enums.js";
+import { ChatGoal, chatModeToParams, RPCMethod } from "../types/enums.js";
 import { ChatError } from "../types/errors.js";
 import type { AskResult, ChatReference, ConversationTurn } from "../types/models.js";
 
@@ -155,6 +155,29 @@ export class ChatAPI {
       }
     }
     return null;
+  }
+
+  /**
+   * Low-level chat configuration. Set goal, response length, and optional
+   * custom instructions directly. Persists on the server per notebook.
+   * Use `setMode()` for preset combinations instead.
+   */
+  async configure(
+    notebookId: string,
+    goal: ChatGoalValue,
+    length: ChatResponseLengthValue,
+    customPrompt?: string,
+  ): Promise<void> {
+    if (goal === ChatGoal.CUSTOM && !customPrompt) {
+      throw new Error("customPrompt is required when goal is ChatGoal.CUSTOM");
+    }
+    const goalArray = goal === ChatGoal.CUSTOM ? [goal, customPrompt] : [goal];
+    const chatSettings = [goalArray, [length]];
+    const params = [notebookId, [[null, null, null, null, null, null, null, chatSettings]]];
+    await this.rpc.call(RPCMethod.RENAME_NOTEBOOK, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
   }
 
   /**
