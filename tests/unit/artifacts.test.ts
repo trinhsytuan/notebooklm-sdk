@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ArtifactsAPI } from "../../src/api/artifacts.js";
+import { NotesAPI } from "../../src/api/notes.js";
 import { RPCCore } from "../../src/rpc/core.js";
 
 function getFixture(filename: string): string {
@@ -10,6 +11,7 @@ function getFixture(filename: string): string {
 
 describe("ArtifactsAPI", () => {
   let api: ArtifactsAPI;
+  let notesApi: NotesAPI;
 
   beforeEach(() => {
     globalThis.fetch = vi.fn();
@@ -20,7 +22,8 @@ describe("ArtifactsAPI", () => {
       cookies: {},
     };
     const realCore = new RPCCore(auth);
-    api = new ArtifactsAPI(realCore, auth);
+    notesApi = new NotesAPI(realCore);
+    api = new ArtifactsAPI(realCore, auth, notesApi);
   });
 
   afterEach(() => {
@@ -84,11 +87,18 @@ describe("ArtifactsAPI", () => {
     expect(result).toHaveProperty("status");
   });
 
-  it("createMindMap() generates a mind map", async () => {
-    // We use a generate fixture since createMindMap just invokes CREATE_ARTIFACT
-    mockFetchWithFixture("artifacts_generate_quiz");
+  it("createMindMap() generates a mind map and returns a Note", async () => {
+    // createMindMap calls GENERATE_MIND_MAP then notes.create (CREATE_NOTE + UPDATE_NOTE)
+    const mindMapFixture = getFixture("artifacts_generate_mind_map.txt");
+    const createNoteFixture = getFixture("notes_create_1.txt");
+    const updateNoteFixture = getFixture("notes_delete_1.txt"); // UPDATE_NOTE returns null — reuse any null fixture
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(mindMapFixture, { status: 200 }))
+      .mockResolvedValueOnce(new Response(createNoteFixture, { status: 200 }))
+      .mockResolvedValueOnce(new Response(updateNoteFixture, { status: 200 }));
     const result = await api.createMindMap("nb-id", ["src-id"]);
-    expect(result).toHaveProperty("artifactId");
-    expect(result).toHaveProperty("status");
+    expect(result).toHaveProperty("id");
+    expect(result).toHaveProperty("content");
+    expect(JSON.parse(result.content)).toHaveProperty("name");
   });
 });
