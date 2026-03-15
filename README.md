@@ -4,14 +4,13 @@
 ![types](https://img.shields.io/npm/types/notebooklm-sdk?style=flat-square)
 ![license](https://img.shields.io/npm/l/notebooklm-sdk?style=flat-square)
 
-A lightweight, zero-dependency TypeScript SDK for the NotebookLM API.
-Works in **Node.js, Bun, and Deno**.
+Unofficial TypeScript SDK for [NotebookLM](https://notebooklm.google.com). Manage notebooks, add sources, generate podcasts and reports, and chat with your sources — all from Node.js, Bun, or Deno.
 
-> This SDK is a TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py).
+> **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
 
 ---
 
-## Installation
+## Install
 
 ```bash
 npm install notebooklm-sdk
@@ -19,11 +18,34 @@ npm install notebooklm-sdk
 bun add notebooklm-sdk
 ```
 
+## Quickstart
+
+```ts
+import { NotebookLMClient } from "notebooklm-sdk";
+
+const client = await NotebookLMClient.connect(); // uses ~/.notebooklm/session.json
+
+// Create a notebook and add a source
+const { id } = await client.notebooks.create("My Research");
+await client.sources.addUrl(id, "https://en.wikipedia.org/wiki/TypeScript");
+
+// Generate a podcast and download it
+const { artifactId } = await client.artifacts.createAudio(id, { format: "deep_dive" });
+const audio = await client.artifacts.waitUntilReady(id, artifactId);
+const mp3 = await client.artifacts.downloadAudio(id, audio.id);
+
+// Chat with the sources
+const res = await client.chat.ask(id, "Summarize the key points.");
+console.log(res.answer);
+```
+
+---
+
 ## Authentication
 
-### Quick Login (Recommended)
+### Login (recommended)
 
-Install Playwright (one-time):
+Install Playwright once:
 
 ```bash
 bun add -d playwright
@@ -36,28 +58,19 @@ Authenticate:
 npx notebooklm-sdk login
 ```
 
-This opens a real browser for Google sign-in and saves your session to `~/.notebooklm/session.json`.
-
-Then connect with no configuration:
-
-```ts
-import { NotebookLMClient } from "notebooklm-sdk";
-
-const client = await NotebookLMClient.connect();
-```
-
-To verify your session at any time:
+Opens a real Chrome window for Google sign-in. Session is saved to `~/.notebooklm/session.json` and auto-discovered on every `connect()` — no config needed.
 
 ```bash
-npx notebooklm-sdk whoami
+npx notebooklm-sdk whoami  # verify session is valid
 ```
 
-<details>
-<summary>Manual / CI Authentication</summary>
+### CI / Server
 
-#### Cookie string
+Pass cookies via environment variable:
 
-Copy the `Cookie` header from DevTools → Network and pass it directly or via env:
+```bash
+NOTEBOOKLM_COOKIES="SID=...; HSID=..."
+```
 
 ```ts
 const client = await NotebookLMClient.connect({
@@ -65,202 +78,41 @@ const client = await NotebookLMClient.connect({
 });
 ```
 
-#### Cookie file
-
-```ts
-const client = await NotebookLMClient.connect({
-  cookiesFile: "./session.json",
-});
-```
-
-#### Auto-discovery order (when called with no args)
-
-1. `~/.notebooklm/session.json` — written by `npx notebooklm-sdk login`
-2. `NOTEBOOKLM_COOKIES` env var — raw cookie string
-
-</details>
+> To get cookie values: open NotebookLM in Chrome → DevTools → Network → any request → copy the `Cookie` header.
 
 ---
 
-## Notebooks
+## What you can build
 
-```ts
-const notebooks = await client.notebooks.list();
-const nb = await client.notebooks.get(id);
+| API | What it does |
+|---|---|
+| `notebooks` | Create, rename, delete, list notebooks |
+| `sources` | Add URLs, text, files; wait for processing |
+| `artifacts` | Generate podcasts, videos, reports, quizzes, flashcards |
+| `chat` | Ask questions, follow-up conversations |
+| `research` | Run web research, import results as sources |
+| `notes` | Create and manage saved notes |
+| `sharing` | Control public access and per-user permissions |
+| `settings` | Get/set output language |
 
-const { id: newId } = await client.notebooks.create("My Notebook");
-
-await client.notebooks.rename(newId, "New Title");
-await client.notebooks.delete(newId);
-
-const summary = await client.notebooks.getSummary(id);
-const description = await client.notebooks.getDescription(id);
-```
-
----
-
-## Sources
-
-```ts
-const sources = await client.sources.list(notebookId);
-
-const { sourceId } = await client.sources.addUrl(notebookId, "https://example.com");
-const { sourceId } = await client.sources.addText(notebookId, "Text content", "Title");
-const { sourceId } = await client.sources.addFile(notebookId, buffer, "file.pdf");
-
-await client.sources.waitUntilReady(notebookId, sourceId);
-await client.sources.delete(notebookId, sourceId);
-```
-
----
-
-## Artifacts
-
-Generate AI outputs from notebook sources.
-
-```ts
-const { artifactId } = await client.artifacts.createAudio(notebookId, {
-  format: AudioFormat.DEEP_DIVE,
-  length: AudioLength.DEFAULT,
-});
-
-const { artifactId } = await client.artifacts.createVideo(notebookId, {
-  format: VideoFormat.EXPLAINER,
-});
-
-const { artifactId } = await client.artifacts.createQuiz(notebookId);
-const { artifactId } = await client.artifacts.createFlashcards(notebookId);
-
-const { artifactId } = await client.artifacts.createReport(notebookId, {
-  format: "briefing_doc",
-});
-```
-
-Wait and download:
-
-```ts
-await client.artifacts.waitUntilReady(notebookId, artifactId);
-
-const audio    = await client.artifacts.downloadAudio(notebookId, artifactId);
-const video    = await client.artifacts.downloadVideo(notebookId, artifactId);
-const markdown = await client.artifacts.getReportMarkdown(notebookId, artifactId);
-const html     = await client.artifacts.getInteractiveHtml(notebookId, artifactId);
-```
-
----
-
-## Chat
-
-```ts
-const res = await client.chat.ask(notebookId, "What is this about?");
-console.log(res.answer);
-
-// Follow-up in the same conversation
-const follow = await client.chat.ask(notebookId, "Tell me more.", {
-  conversationId: res.conversationId,
-});
-
-const convId = await client.chat.getLastConversationId(notebookId);
-const turns  = await client.chat.getConversationTurns(notebookId, convId);
-```
-
----
-
-## Research
-
-Start a web research session and import results into a notebook:
-
-```ts
-const task = await client.research.start(
-  notebookId,
-  "Latest advances in quantum computing",
-  "web",   // "web" | "notebook"
-  "fast",  // "fast" | "deep"
-);
-
-let result = await client.research.poll(notebookId);
-while (result.status === "in_progress") {
-  await new Promise((r) => setTimeout(r, 3000));
-  result = await client.research.poll(notebookId);
-}
-
-if (result.status === "completed") {
-  await client.research.importSources(notebookId, result.taskId, result.sources.slice(0, 3));
-}
-```
-
----
-
-## Notes
-
-```ts
-const { noteId } = await client.notes.create(notebookId, "# My Note");
-
-await client.notes.update(notebookId, noteId, "Updated content");
-await client.notes.delete(notebookId, noteId);
-```
-
----
-
-## Sharing
-
-```ts
-await client.sharing.setPublic(notebookId, true);
-
-await client.sharing.addUser(notebookId, "user@example.com", SharePermission.VIEWER);
-await client.sharing.updateUser(notebookId, "user@example.com", SharePermission.EDITOR);
-await client.sharing.removeUser(notebookId, "user@example.com");
-
-const status = await client.sharing.getStatus(notebookId);
-```
-
----
-
-## Settings
-
-```ts
-const lang = await client.settings.getOutputLanguage();
-await client.settings.setOutputLanguage("ja");
-```
+→ [Full API reference](./DOCS.md)
 
 ---
 
 ## Examples
 
-Runnable scripts are in [`examples/`](./examples).
-
 ```bash
-# Authenticate once
 npx notebooklm-sdk login
 
-# Run any example
 bun run examples/basic.ts
 bun run examples/chat.ts
-bun run examples/research.ts
 bun run examples/audio.ts
+bun run examples/research.ts
 bun run examples/download.ts
-```
-
----
-
-## Error Handling
-
-All errors extend `NotebookLMError`.
-
-```ts
-import { ArtifactNotReadyError } from "notebooklm-sdk/errors";
-
-try {
-  await client.artifacts.downloadAudio(notebookId, artifactId);
-} catch (err) {
-  if (err instanceof ArtifactNotReadyError) {
-    // still processing
-  }
-}
 ```
 
 ---
 
 ## License
 
-MIT
+MIT · TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py)
