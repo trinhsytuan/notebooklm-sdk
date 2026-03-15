@@ -1,11 +1,16 @@
-import { ChatMode, NotebookLMClient } from "../src/index.js";
+import { ChatGoal, ChatMode, ChatResponseLength, NotebookLMClient } from "../src/index.js";
 
 const client = await NotebookLMClient.connect();
 const nb = (await client.notebooks.list())[0];
 console.log(`Notebook: ${nb.title}`);
 
-// Set chat mode (persists on server)
+// Set chat mode (persists on server) — preset combinations
 await client.chat.setMode(nb.id, ChatMode.CONCISE);
+
+// Or use configure() for custom instructions / fine-grained control:
+// await client.chat.configure(nb.id, ChatGoal.CUSTOM, ChatResponseLength.DEFAULT,
+//   "You are a concise summarizer. Always respond in bullet points.");
+// await client.chat.configure(nb.id, ChatGoal.LEARNING_GUIDE, ChatResponseLength.LONGER);
 
 const result = await client.chat.ask(
   nb.id,

@@ -21,3 +21,7 @@ const markdown = await client.artifacts.getReportMarkdown(nb.id, artifact.id);
 await fs.mkdir("downloads", { recursive: true });
 await fs.writeFile(`downloads/${artifact.id}.md`, markdown!);
 console.log(`Saved downloads/${artifact.id}.md`);
+
+// Optionally export to Google Docs
+const docUrl = await client.artifacts.exportReport(nb.id, artifact.id, nb.title ?? "Report");
+if (docUrl) console.log(`Exported to Google Docs: ${docUrl}`);
