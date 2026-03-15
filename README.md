@@ -1,16 +1,16 @@
 # notebooklm-sdk
 
+### Automate NotebookLM from your code.
+
 [![npm version](https://img.shields.io/npm/v/notebooklm-sdk?style=flat-square)](https://www.npmjs.com/package/notebooklm-sdk)
 ![types](https://img.shields.io/npm/types/notebooklm-sdk?style=flat-square)
 ![license](https://img.shields.io/npm/l/notebooklm-sdk?style=flat-square)
 
-Unofficial TypeScript SDK for [NotebookLM](https://notebooklm.google.com). Manage notebooks, add sources, generate podcasts and reports, and chat with your sources — all from Node.js, Bun, or Deno.
+Generate AI podcasts, chat with documents, run web research, and manage notebooks programmatically — from Node.js, Bun, or Deno.
+
+> ⚠️ **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
 
 TypeScript port of [notebooklm-py](https://github.com/teng-lin/notebooklm-py).
-
-> **Unofficial.** This SDK reverse-engineers the NotebookLM internal API. It may break when Google updates their service. Not affiliated with Google.
-
----
 
 ## Install
 
@@ -32,7 +32,9 @@ const { id } = await client.notebooks.create("My Research");
 await client.sources.addUrl(id, "https://en.wikipedia.org/wiki/TypeScript");
 
 // Generate a podcast and download it
-const { artifactId } = await client.artifacts.createAudio(id, { format: "deep_dive" });
+const { artifactId } = await client.artifacts.createAudio(id, {
+  format: "deep_dive",
+});
 const audio = await client.artifacts.waitUntilReady(id, artifactId);
 const mp3 = await client.artifacts.downloadAudio(id, audio.id);
 
@@ -41,7 +43,13 @@ const res = await client.chat.ask(id, "Summarize the key points.");
 console.log(res.answer);
 ```
 
----
+## Use cases
+
+- **Content pipelines** — ingest articles or reports, generate a podcast or briefing doc on a schedule
+- **Research automation** — run web research, import results, and query them via chat
+- **Document Q&A bots** — feed documents into a notebook and build a chat interface on top
+- **Batch artifact generation** — generate quizzes, flashcards, or study guides from a library of sources
+- **Notebook management tools** — create, organize, and share notebooks programmatically
 
 ## Authentication
 
@@ -82,24 +90,34 @@ const client = await NotebookLMClient.connect({
 
 > To get cookie values: open NotebookLM in Chrome → DevTools → Network → any request → copy the `Cookie` header.
 
----
-
 ## What you can build
 
-| API | What it does |
-|---|---|
-| `notebooks` | Create, rename, delete, list notebooks |
-| `sources` | Add URLs, text, files; wait for processing |
-| `artifacts` | Generate podcasts, videos, reports, quizzes, flashcards |
-| `chat` | Ask questions, follow-up conversations |
-| `research` | Run web research, import results as sources |
-| `notes` | Create and manage saved notes |
-| `sharing` | Control public access and per-user permissions |
-| `settings` | Get/set output language |
+| API         | What it does                                            |
+| ----------- | ------------------------------------------------------- |
+| `notebooks` | Create, rename, delete, list notebooks                  |
+| `sources`   | Add URLs, text, files; wait for processing              |
+| `artifacts` | Generate and download AI outputs (see below)            |
+| `chat`      | Ask questions, follow-up conversations                  |
+| `research`  | Run web research, import results as sources             |
+| `notes`     | Create and manage saved notes                           |
+| `sharing`   | Control public access and per-user permissions          |
+| `settings`  | Get/set output language                                 |
+
+**Artifact types**
+
+| Artifact       | Method               | Output            |
+| -------------- | -------------------- | ----------------- |
+| Audio Overview | `createAudio()`      | Downloadable MP3  |
+| Video Overview | `createVideo()`      | Downloadable MP4  |
+| Slide Deck     | `createSlideDeck()`  | PDF / PPTX download |
+| Infographic    | `createInfographic()`| PNG download      |
+| Mind Map       | `createMindMap()`    | JSON download     |
+| Reports        | `createReport()`     | Markdown download |
+| Flashcards     | `createFlashcards()` | Interactive HTML  |
+| Quiz           | `createQuiz()`       | Interactive HTML  |
+| Data Table     | `createDataTable()`  | CSV (headers + rows) |
 
 → [Full API reference](./DOCS.md)
-
----
 
 ## Examples
 
@@ -112,8 +130,6 @@ bun run examples/audio.ts
 bun run examples/research.ts
 bun run examples/download.ts
 ```
-
----
 
 ## License
 

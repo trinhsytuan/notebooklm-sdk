@@ -73,6 +73,17 @@ export interface CreateSlideDeckOptions {
   language?: string;
 }
 
+export interface CreateDataTableOptions {
+  sourceIds?: string[];
+  instructions?: string;
+  language?: string;
+}
+
+export interface DataTableContent {
+  headers: string[];
+  rows: string[][];
+}
+
 export type ReportFormat = "briefing_doc" | "study_guide" | "blog_post" | "custom";
 
 export interface CreateReportOptions {
@@ -100,15 +111,7 @@ export class ArtifactsAPI {
   ) {}
 
   async list(notebookId: string): Promise<Artifact[]> {
-    const params = [[2], notebookId, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"'];
-    const result = await this.rpc.call(RPCMethod.LIST_ARTIFACTS, params, {
-      sourcePath: `/notebook/${notebookId}`,
-      allowNull: true,
-    });
-
-    if (!Array.isArray(result) || !result.length) return [];
-    const rawList = Array.isArray(result[0]) ? (result[0] as unknown[][]) : (result as unknown[][]);
-
+    const rawList = await this._listRaw(notebookId);
     const artifacts: Artifact[] = [];
     for (const item of rawList) {
       if (Array.isArray(item)) {
@@ -120,6 +123,16 @@ export class ArtifactsAPI {
       }
     }
     return artifacts;
+  }
+
+  private async _listRaw(notebookId: string): Promise<unknown[][]> {
+    const params = [[2], notebookId, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"'];
+    const result = await this.rpc.call(RPCMethod.LIST_ARTIFACTS, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+    if (!Array.isArray(result) || !result.length) return [];
+    return (Array.isArray(result[0]) ? result[0] : result) as unknown[][];
   }
 
   async get(notebookId: string, artifactId: string): Promise<Artifact | null> {
@@ -332,6 +345,29 @@ export class ArtifactsAPI {
     return this._callGenerate(notebookId, params);
   }
 
+  async createDataTable(
+    notebookId: string,
+    opts: CreateDataTableOptions = {},
+  ): Promise<GenerationStatus> {
+    const language = opts.language ?? "en";
+    const sourceIds = opts.sourceIds ?? (await this.rpc.getSourceIds(notebookId));
+    const triple = tripleNest(sourceIds);
+
+    // config at index 18 (twelve extra nulls at 6-17)
+    const params = [
+      [2],
+      notebookId,
+      [
+        null, null,
+        ArtifactTypeCode.DATA_TABLE,
+        triple,
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        [null, [opts.instructions ?? null, language]],
+      ],
+    ];
+    return this._callGenerate(notebookId, params);
+  }
+
   async createReport(
     notebookId: string,
     opts: CreateReportOptions = {},
@@ -483,6 +519,65 @@ export class ArtifactsAPI {
     return null;
   }
 
+  /** Download a completed slide deck as PDF or PPTX. Returns a Buffer. */
+  async downloadSlideDeck(
+    notebookId: string,
+    artifactId: string,
+    format: "pdf" | "pptx" = "pdf",
+  ): Promise<Buffer> {
+    const rawList = await this._listRaw(notebookId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = rawList.find((a: any) => a[0] === artifactId && a[2] === ArtifactTypeCode.SLIDE_DECK) as any;
+    if (!raw) throw new ArtifactNotReadyError("slide_deck", { artifactId });
+
+    // artifact[16] = [config, title, slides, pdf_url, pptx_url]
+    const metadata = raw[16];
+    if (!Array.isArray(metadata)) throw new ArtifactNotReadyError("slide_deck", { artifactId });
+
+    const url = format === "pptx" ? metadata[4] : metadata[3];
+    if (typeof url !== "string" || !url.startsWith("http")) {
+      throw new ArtifactNotReadyError("slide_deck", { artifactId, status: `no ${format} url` });
+    }
+    return this._fetchMediaWithCookies(url);
+  }
+
+  /** Download a completed infographic as PNG. Returns a Buffer. */
+  async downloadInfographic(notebookId: string, artifactId: string): Promise<Buffer> {
+    const rawList = await this._listRaw(notebookId);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = rawList.find((a: any) => a[0] === artifactId && a[2] === ArtifactTypeCode.INFOGRAPHIC) as any[];
+    if (!raw) throw new ArtifactNotReadyError("infographic", { artifactId });
+
+    // Scan in reverse for the nested list containing the image URL
+    let url: string | null = null;
+    for (let i = raw.length - 1; i >= 0; i--) {
+      const item = raw[i];
+      if (
+        Array.isArray(item) &&
+        Array.isArray(item[2]) &&
+        Array.isArray(item[2][0]) &&
+        Array.isArray(item[2][0][1]) &&
+        typeof item[2][0][1][0] === "string" &&
+        (item[2][0][1][0] as string).startsWith("http")
+      ) {
+        url = item[2][0][1][0] as string;
+        break;
+      }
+    }
+    if (!url) throw new ArtifactNotReadyError("infographic", { artifactId });
+    return this._fetchMediaWithCookies(url);
+  }
+
+  /** Get parsed headers and rows from a completed data table artifact. */
+  async getDataTableContent(notebookId: string, artifactId: string): Promise<DataTableContent | null> {
+    const artifacts = await this._listRaw(notebookId);
+    const raw = artifacts.find(
+      (a) => Array.isArray(a) && a[0] === artifactId && a[2] === ArtifactTypeCode.DATA_TABLE,
+    );
+    if (!raw || !Array.isArray(raw) || !Array.isArray(raw[18])) return null;
+    return parseDataTable(raw[18]);
+  }
+
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
@@ -555,6 +650,41 @@ export class ArtifactsAPI {
       }
     }
     return { artifactId: null, status: "failed" };
+  }
+}
+
+function extractCellText(cell: unknown): string {
+  if (typeof cell === "string") return cell;
+  if (typeof cell === "number") return "";
+  if (Array.isArray(cell)) return cell.map(extractCellText).join("");
+  return "";
+}
+
+function parseDataTable(rawData: unknown): DataTableContent {
+  try {
+    // Navigate: raw[0][0][0][0][4][2] → rows array
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nav = rawData as any;
+    const rowsArray = nav[0][0][0][0][4][2] as unknown[][];
+    if (!rowsArray?.length) throw new Error("Empty data table");
+
+    const headers: string[] = [];
+    const rows: string[][] = [];
+
+    for (let i = 0; i < rowsArray.length; i++) {
+      const rowSection = rowsArray[i];
+      if (!Array.isArray(rowSection) || rowSection.length < 3) continue;
+      const cellArray = rowSection[2] as unknown[];
+      if (!Array.isArray(cellArray)) continue;
+      const values = cellArray.map(extractCellText);
+      if (i === 0) headers.push(...values);
+      else rows.push(values);
+    }
+
+    if (!headers.length) throw new Error("No headers found");
+    return { headers, rows };
+  } catch (e) {
+    throw new Error(`Failed to parse data table: ${e}`);
   }
 }
 

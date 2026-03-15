@@ -30,10 +30,19 @@ export class NotesAPI {
       if (Array.isArray(mapsData)) {
         for (const m of mapsData) {
           if (Array.isArray(m)) {
+            // Skip deleted items: [id, null, 2]
+            if (m[1] === null && m[2] === 2) continue;
+            // Content is either m[1] (string) or m[1][1] (nested array form)
+            const content =
+              typeof m[1] === "string"
+                ? m[1]
+                : Array.isArray(m[1]) && typeof m[1][1] === "string"
+                  ? (m[1][1] as string)
+                  : "";
             mindMaps.push({
               id: typeof m[0] === "string" ? (m[0] as string) : "",
               title: typeof m[2] === "string" ? (m[2] as string) : null,
-              content: typeof m[1] === "string" ? (m[1] as string) : "",
+              content,
               createdAt:
                 Array.isArray(m[3]) && typeof m[3][0] === "number"
                   ? new Date((m[3][0] as number) * 1000)
@@ -47,6 +56,19 @@ export class NotesAPI {
     }
 
     return { notes, mindMaps };
+  }
+
+  /** Get the parsed JSON content of a mind map. Returns null if not found. */
+  async getMindMapContent(notebookId: string, mindMapId?: string): Promise<unknown | null> {
+    const { mindMaps } = await this.list(notebookId);
+    if (!mindMaps.length) return null;
+    const mm = mindMapId ? mindMaps.find((m) => m.id === mindMapId) : mindMaps[0];
+    if (!mm?.content) return null;
+    try {
+      return JSON.parse(mm.content);
+    } catch {
+      return null;
+    }
   }
 
   async create(notebookId: string, content: string, title?: string): Promise<Note> {
