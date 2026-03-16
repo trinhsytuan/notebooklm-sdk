@@ -526,7 +526,7 @@ export class ArtifactsAPI {
   async waitUntilReady(
     notebookId: string,
     artifactId: string,
-    timeout = 300,
+    timeout = 1800,
     pollInterval = 3,
   ): Promise<Artifact> {
     const deadline = Date.now() + timeout * 1000;

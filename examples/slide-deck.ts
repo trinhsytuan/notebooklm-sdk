@@ -8,7 +8,15 @@ console.log(`Notebook: ${nb.title}`);
 const { artifactId } = await client.artifacts.createSlideDeck(nb.id);
 console.log(`Generating slide deck... (${artifactId})`);
 
-await client.artifacts.waitUntilReady(nb.id, artifactId!);
+while (true) {
+  const status = await client.artifacts.pollStatus(nb.id, artifactId!);
+  console.log(`Status: ${status.status}`);
+  if (status.status === "completed") break;
+  if (status.status === "failed") {
+    throw new Error(`Slide deck generation failed for ${artifactId}`);
+  }
+  await sleep(15_000);
+}
 
 await fs.mkdir("downloads", { recursive: true });
 
@@ -28,3 +36,7 @@ const revision = await client.artifacts.reviseSlide(
   "Move the title to the top",
 );
 console.log(`Revision started: ${revision.artifactId} (${revision.status})`);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

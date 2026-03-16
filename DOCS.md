@@ -308,7 +308,7 @@ Artifacts are AI-generated outputs: podcasts, videos, reports, quizzes, and flas
 
 ### Create (async — poll to completion)
 
-Most artifact methods return a `GenerationStatus` with an `artifactId`. Use `waitUntilReady` to poll until done.
+Most artifact methods return a `GenerationStatus` with an `artifactId`. Use `waitUntilReady` for straightforward flows, or `pollStatus()` for long-running jobs where you want custom retry, timeout, or UI behavior.
 
 ```ts
 import {
@@ -403,11 +403,11 @@ const dataTables  = await client.artifacts.listDataTables(notebookId);
 
 ### `client.artifacts.waitUntilReady(notebookId, artifactId, timeoutSecs?, pollIntervalSecs?)`
 
-Polls until artifact generation completes. For audio and video, this waits until the media URL is actually available, not just until the status flips to `completed`.
+Polls until artifact generation completes. For audio and video, this waits until the media URL is actually available, not just until the status flips to `completed`. Default timeout is `1800` seconds.
 
 ```ts
 const artifact = await client.artifacts.waitUntilReady(notebookId, artifactId);
-await client.artifacts.waitUntilReady(notebookId, artifactId, 600, 5); // 10min timeout
+await client.artifacts.waitUntilReady(notebookId, artifactId, 3600, 5); // 1h timeout
 ```
 
 ### `client.artifacts.pollStatus(notebookId, artifactId)`
@@ -417,6 +417,18 @@ Returns the current artifact status without waiting.
 ```ts
 const status = await client.artifacts.pollStatus(notebookId, artifactId);
 // { artifactId, status }
+```
+
+Recommended for long-running jobs such as audio overviews, videos, and slide decks:
+
+```ts
+while (true) {
+  const status = await client.artifacts.pollStatus(notebookId, artifactId);
+  console.log(status.status);
+  if (status.status === "completed") break;
+  if (status.status === "failed") throw new Error(`Generation failed: ${artifactId}`);
+  await new Promise((r) => setTimeout(r, 15_000));
+}
 ```
 
 ### Download

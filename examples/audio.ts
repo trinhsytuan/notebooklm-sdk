@@ -11,9 +11,26 @@ const { artifactId } = await client.artifacts.createAudio(nb.id, {
 });
 console.log(`Generating podcast... (${artifactId})`);
 
-const artifact = await client.artifacts.waitUntilReady(nb.id, artifactId!, 600, 5);
+while (true) {
+  const status = await client.artifacts.pollStatus(nb.id, artifactId!);
+  console.log(`Status: ${status.status}`);
+  if (status.status === "completed") break;
+  if (status.status === "failed") {
+    throw new Error(`Audio generation failed for ${artifactId}`);
+  }
+  await sleep(15_000);
+}
+
+const artifact = await client.artifacts.get(nb.id, artifactId!);
+if (!artifact) {
+  throw new Error(`Audio artifact not found: ${artifactId}`);
+}
 
 await fs.mkdir("downloads", { recursive: true });
 const buffer = await client.artifacts.downloadAudio(nb.id, artifact.id);
 await fs.writeFile(`downloads/${artifact.id}.mp3`, buffer);
 console.log(`Saved downloads/${artifact.id}.mp3 (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
