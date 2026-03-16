@@ -308,7 +308,7 @@ Artifacts are AI-generated outputs: podcasts, videos, reports, quizzes, and flas
 
 ### Create (async — poll to completion)
 
-Most artifact methods return a `GenerationStatus` with an `artifactId`. Use `waitUntilReady` for straightforward flows, or `pollStatus()` for long-running jobs where you want custom retry, timeout, or UI behavior.
+Most artifact methods return a `GenerationStatus` with an `artifactId`. Use `waitUntilReady` for straightforward flows, `pollUntilReady()` when you want progress hooks or cancellation, or `pollStatus()` for fully custom polling behavior.
 
 ```ts
 import {
@@ -410,6 +410,21 @@ const artifact = await client.artifacts.waitUntilReady(notebookId, artifactId);
 await client.artifacts.waitUntilReady(notebookId, artifactId, 3600, 5); // 1h timeout
 ```
 
+### `client.artifacts.pollUntilReady(notebookId, artifactId, opts?)`
+
+Polls until the artifact is fully ready and returns the final `Artifact`. Supports progress callbacks, custom intervals, timeouts, and `AbortSignal` cancellation. For audio and video, this still waits until the media URL is actually available.
+
+```ts
+const artifact = await client.artifacts.pollUntilReady(notebookId, artifactId, {
+  timeoutSecs: 3600,
+  intervalSecs: 15,
+  onTick(status) {
+    console.log(status.status);
+  },
+  signal: abortController.signal,
+});
+```
+
 ### `client.artifacts.pollStatus(notebookId, artifactId)`
 
 Returns the current artifact status without waiting.
@@ -419,7 +434,7 @@ const status = await client.artifacts.pollStatus(notebookId, artifactId);
 // { artifactId, status }
 ```
 
-Recommended for long-running jobs such as audio overviews, videos, and slide decks:
+Use this low-level method when you want to build your own polling loop:
 
 ```ts
 while (true) {

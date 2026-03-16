@@ -10,6 +10,7 @@ export type {
   CreateSlideDeckOptions,
   CreateVideoOptions,
   DataTableContent,
+  PollUntilReadyOptions,
   ReportFormat,
 } from "./api/artifacts.js";
 // API classes (for advanced users)

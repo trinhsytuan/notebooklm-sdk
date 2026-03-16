@@ -86,6 +86,13 @@ export interface DataTableContent {
   rows: string[][];
 }
 
+export interface PollUntilReadyOptions {
+  timeoutSecs?: number;
+  intervalSecs?: number;
+  onTick?: (status: GenerationStatus) => void | Promise<void>;
+  signal?: AbortSignal;
+}
+
 export type ReportFormat = "briefing_doc" | "study_guide" | "blog_post" | "custom";
 
 export interface CreateReportOptions {
@@ -529,9 +536,30 @@ export class ArtifactsAPI {
     timeout = 1800,
     pollInterval = 3,
   ): Promise<Artifact> {
+    return this.pollUntilReady(notebookId, artifactId, {
+      timeoutSecs: timeout,
+      intervalSecs: pollInterval,
+    });
+  }
+
+  /** Poll until artifact is fully ready, with optional progress hooks and cancellation. */
+  async pollUntilReady(
+    notebookId: string,
+    artifactId: string,
+    opts: PollUntilReadyOptions = {},
+  ): Promise<Artifact> {
+    const timeout = opts.timeoutSecs ?? 1800;
+    const pollInterval = opts.intervalSecs ?? 3;
     const deadline = Date.now() + timeout * 1000;
+    let lastStatus: GenerationStatus | null = null;
 
     while (Date.now() < deadline) {
+      this.throwIfAborted(opts.signal);
+
+      const status = await this.pollStatus(notebookId, artifactId);
+      lastStatus = status;
+      if (opts.onTick) await opts.onTick(status);
+
       const artifact = await this.get(notebookId, artifactId);
       if (artifact?.status === "completed") {
         if (
@@ -543,12 +571,25 @@ export class ArtifactsAPI {
         }
         return artifact;
       }
-      if (artifact?.status === "failed") {
-        throw new ArtifactNotReadyError(artifact.kind, { artifactId, status: "failed" });
+      if (artifact?.status === "failed" || status.status === "failed") {
+        throw new ArtifactNotReadyError(artifact?.kind ?? "artifact", {
+          artifactId,
+          status: "failed",
+        });
       }
+
       await sleep(pollInterval * 1000);
     }
-    throw new ArtifactNotReadyError("artifact", { artifactId, status: "timeout" });
+
+    throw new ArtifactNotReadyError("artifact", {
+      artifactId,
+      status: lastStatus?.status ?? "timeout",
+    });
+  }
+
+  private throwIfAborted(signal?: AbortSignal): void {
+    if (!signal?.aborted) return;
+    throw new Error("Artifact polling aborted");
   }
 
   /** Get the current status of a generated artifact without waiting. */

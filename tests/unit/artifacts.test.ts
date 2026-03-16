@@ -74,6 +74,10 @@ describe("ArtifactsAPI", () => {
   });
 
   it("waitUntilReady() keeps polling completed media until URL is available", async () => {
+    const pollSpy = vi
+      .spyOn(api, "pollStatus")
+      .mockResolvedValueOnce({ artifactId: "art-id", status: "completed" })
+      .mockResolvedValueOnce({ artifactId: "art-id", status: "completed" });
     const getSpy = vi
       .spyOn(api, "get")
       .mockResolvedValueOnce({
@@ -104,8 +108,63 @@ describe("ArtifactsAPI", () => {
       });
 
     const artifact = await api.waitUntilReady("nb-id", "art-id", 1, 0);
+    expect(pollSpy).toHaveBeenCalledTimes(2);
     expect(getSpy).toHaveBeenCalledTimes(2);
     expect(artifact.audioUrl).toBe("https://example.com/audio.mp4");
+  });
+
+  it("pollUntilReady() reports progress and returns the completed artifact", async () => {
+    const onTick = vi.fn();
+    const pollSpy = vi
+      .spyOn(api, "pollStatus")
+      .mockResolvedValueOnce({ artifactId: "art-id", status: "pending" })
+      .mockResolvedValueOnce({ artifactId: "art-id", status: "completed" });
+    const getSpy = vi.spyOn(api, "get").mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "art-id",
+      title: "Report",
+      kind: "report",
+      status: "completed",
+      notebookId: "nb-id",
+      audioUrl: null,
+      videoUrl: null,
+      exportUrl: null,
+      shareUrl: null,
+      content: "done",
+      _raw: [],
+    });
+
+    const artifact = await api.pollUntilReady("nb-id", "art-id", {
+      timeoutSecs: 1,
+      intervalSecs: 0,
+      onTick,
+    });
+
+    expect(pollSpy).toHaveBeenCalledTimes(2);
+    expect(getSpy).toHaveBeenCalledTimes(2);
+    expect(onTick).toHaveBeenCalledTimes(2);
+    expect(artifact.id).toBe("art-id");
+  });
+
+  it("pollUntilReady() throws when artifact generation fails", async () => {
+    vi.spyOn(api, "pollStatus").mockResolvedValue({ artifactId: "art-id", status: "failed" });
+    vi.spyOn(api, "get").mockResolvedValue(null);
+
+    await expect(
+      api.pollUntilReady("nb-id", "art-id", { timeoutSecs: 1, intervalSecs: 0 }),
+    ).rejects.toThrow("failed");
+  });
+
+  it("pollUntilReady() supports abort signals", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      api.pollUntilReady("nb-id", "art-id", {
+        timeoutSecs: 1,
+        intervalSecs: 0,
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow("aborted");
   });
 
   // We explicitly provide sourceIds to avoid the internal getSourceIds call

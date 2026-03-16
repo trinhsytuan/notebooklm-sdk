@@ -137,6 +137,7 @@ npx notebooklm-sdk login
 bun run examples/basic.ts           # list notebooks and sources
 bun run examples/chat.ts            # ask questions, follow-up conversations
 bun run examples/audio.ts           # generate and download a podcast
+bun run examples/video.ts           # generate and download a cinematic video
 bun run examples/report.ts          # generate and download a briefing doc
 bun run examples/slide-deck.ts      # generate and download PDF / PPTX
 bun run examples/infographic.ts     # generate and download a PNG infographic
