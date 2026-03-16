@@ -1,7 +1,12 @@
 import type { RPCCore } from "../rpc/core.js";
 import { RPCMethod } from "../types/enums.js";
-import type { Notebook, NotebookDescription, SuggestedTopic } from "../types/models.js";
-import { parseNotebook } from "../types/models.js";
+import type {
+  Notebook,
+  NotebookDescription,
+  NotebookMetadata,
+  SuggestedTopic,
+} from "../types/models.js";
+import { parseNotebook, parseSource } from "../types/models.js";
 
 export class NotebooksAPI {
   constructor(private readonly rpc: RPCCore) {}
@@ -64,6 +69,13 @@ export class NotebooksAPI {
     await this.rpc.call(RPCMethod.REMOVE_RECENTLY_VIEWED, [notebookId], { allowNull: true });
   }
 
+  async getRaw(notebookId: string): Promise<unknown> {
+    const params = [notebookId, null, [2], null, 0];
+    return this.rpc.call(RPCMethod.GET_NOTEBOOK, params, {
+      sourcePath: `/notebook/${notebookId}`,
+    });
+  }
+
   async getDescription(notebookId: string): Promise<NotebookDescription> {
     const params = [notebookId, [2]];
     const result = await this.rpc.call(RPCMethod.SUMMARIZE, params, {
@@ -95,5 +107,53 @@ export class NotebooksAPI {
     }
 
     return { summary, suggestedTopics };
+  }
+
+  async share(
+    notebookId: string,
+    publicAccess = true,
+    artifactId?: string,
+  ): Promise<{ public: boolean; url: string | null; artifactId: string | null }> {
+    const shareOptions = publicAccess ? [1] : [0];
+    const params = artifactId ? [shareOptions, notebookId, artifactId] : [shareOptions, notebookId];
+    await this.rpc.call(RPCMethod.SHARE_ARTIFACT, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+
+    return {
+      public: publicAccess,
+      url: publicAccess ? this.getShareUrl(notebookId, artifactId) : null,
+      artifactId: artifactId ?? null,
+    };
+  }
+
+  getShareUrl(notebookId: string, artifactId?: string): string {
+    const baseUrl = `https://notebooklm.google.com/notebook/${notebookId}`;
+    return artifactId ? `${baseUrl}?artifactId=${artifactId}` : baseUrl;
+  }
+
+  async getMetadata(notebookId: string): Promise<NotebookMetadata> {
+    const raw = await this.getRaw(notebookId);
+    const notebookData =
+      Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0]) ? (raw[0] as unknown[]) : [];
+    const notebook = parseNotebook(notebookData);
+
+    const sourcesRaw = Array.isArray(notebookData[1]) ? (notebookData[1] as unknown[][]) : [];
+    const sources = sourcesRaw
+      .filter((source) => Array.isArray(source) && source.length > 0)
+      .map((source) => parseSource(source));
+
+    return {
+      id: notebook.id,
+      title: notebook.title,
+      createdAt: notebook.createdAt,
+      isOwner: notebook.isOwner,
+      sources: sources.map((source) => ({
+        kind: source.kind,
+        title: source.title,
+        url: source.url,
+      })),
+    };
   }
 }

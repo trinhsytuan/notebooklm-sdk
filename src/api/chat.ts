@@ -1,7 +1,7 @@
 import type { AuthTokens } from "../auth.js";
 import type { RPCCore } from "../rpc/core.js";
 import type { ChatGoalValue, ChatModeValue, ChatResponseLengthValue } from "../types/enums.js";
-import { ChatGoal, chatModeToParams, RPCMethod } from "../types/enums.js";
+import { ChatGoal, ChatResponseLength, chatModeToParams, RPCMethod } from "../types/enums.js";
 import { ChatError } from "../types/errors.js";
 import type { AskResult, ChatReference, ConversationTurn } from "../types/models.js";
 
@@ -30,6 +30,7 @@ export class ChatAPI {
   constructor(
     private readonly rpc: RPCCore,
     private readonly auth: AuthTokens,
+    private readonly refreshAuth?: () => Promise<void>,
   ) {}
 
   async ask(notebookId: string, query: string, opts: AskOptions = {}): Promise<AskResult> {
@@ -66,21 +67,7 @@ export class ChatAPI {
     if (this.auth.csrfToken) bodyParts.push(`at=${encodeURIComponent(this.auth.csrfToken)}`);
     const body = bodyParts.join("&") + "&";
 
-    let response: Response;
-    try {
-      response = await fetch(`${QUERY_URL}?${urlParams.toString()}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          Cookie: this.auth.cookieHeader,
-        },
-        body,
-      });
-    } catch (e) {
-      throw new ChatError(`Chat request failed: ${String(e)}`);
-    }
-
-    if (!response.ok) throw new ChatError(`Chat request failed: HTTP ${response.status}`);
+    const response = await this._postChatRequest(`${QUERY_URL}?${urlParams.toString()}`, body);
 
     const text = await response.text();
     const { answer, conversationId: serverConvId, references } = parseStreamingResponse(text);
@@ -157,6 +144,52 @@ export class ChatAPI {
     return null;
   }
 
+  async getHistory(
+    notebookId: string,
+    limit = 100,
+    conversationId?: string,
+  ): Promise<Array<[string, string]>> {
+    const convId = conversationId ?? (await this.getLastConversationId(notebookId));
+    if (!convId) return [];
+
+    const params = [[], null, null, convId, limit];
+    const result = await this.rpc.call(RPCMethod.GET_CONVERSATION_TURNS, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+
+    if (!Array.isArray(result) || !Array.isArray(result[0])) return [];
+
+    const rawTurns = [...(result[0] as unknown[])].reverse();
+    const history: Array<[string, string]> = [];
+
+    let i = 0;
+    while (i < rawTurns.length) {
+      const turn = rawTurns[i];
+      if (!Array.isArray(turn) || turn.length < 3) {
+        i++;
+        continue;
+      }
+      if (turn[2] === 1 && turn.length > 3) {
+        const query = typeof turn[3] === "string" ? (turn[3] as string) : "";
+        let answer = "";
+        const next = rawTurns[i + 1];
+        if (Array.isArray(next) && next.length > 4 && next[2] === 2) {
+          try {
+            answer = String(((next[4] as unknown[][])[0] as unknown[])[0] ?? "");
+          } catch {
+            /* ignore */
+          }
+          i++;
+        }
+        history.push([query, answer]);
+      }
+      i++;
+    }
+
+    return history;
+  }
+
   /**
    * Low-level chat configuration. Set goal, response length, and optional
    * custom instructions directly. Persists on the server per notebook.
@@ -164,8 +197,8 @@ export class ChatAPI {
    */
   async configure(
     notebookId: string,
-    goal: ChatGoalValue,
-    length: ChatResponseLengthValue,
+    goal: ChatGoalValue = ChatGoal.DEFAULT,
+    length: ChatResponseLengthValue = ChatResponseLength.DEFAULT,
     customPrompt?: string,
   ): Promise<void> {
     if (goal === ChatGoal.CUSTOM && !customPrompt) {
@@ -202,6 +235,15 @@ export class ChatAPI {
     }
   }
 
+  getCachedTurns(conversationId: string): ConversationTurn[] {
+    const turns = this.conversationCache.get(conversationId) ?? [];
+    return turns.map((turn) => ({
+      query: turn.query,
+      answer: turn.answer,
+      turnNumber: turn.turnNumber,
+    }));
+  }
+
   private _buildHistory(conversationId: string): unknown[] | null {
     const turns = this.conversationCache.get(conversationId) ?? [];
     if (!turns.length) return null;
@@ -211,6 +253,30 @@ export class ChatAPI {
       history.push([turn.query, null, 1]);
     }
     return history;
+  }
+
+  private async _postChatRequest(url: string, body: string, retried = false): Promise<Response> {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          Cookie: this.auth.cookieHeader,
+        },
+        body,
+      });
+    } catch (e) {
+      throw new ChatError(`Chat request failed: ${String(e)}`);
+    }
+
+    if ((response.status === 401 || response.status === 403) && !retried && this.refreshAuth) {
+      await this.refreshAuth();
+      return this._postChatRequest(url, body, true);
+    }
+
+    if (!response.ok) throw new ChatError(`Chat request failed: HTTP ${response.status}`);
+    return response;
   }
 }
 

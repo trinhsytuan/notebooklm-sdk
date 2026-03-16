@@ -1,5 +1,18 @@
 # notebooklm-sdk
 
+## 0.3.3
+
+### Patch Changes
+
+- Improve SDK ergonomics and runtime reliability.
+
+  - add new client helpers across notebooks, sources, notes, chat, and artifacts
+  - add `artifacts.pollStatus()` for non-blocking status checks
+  - auto-refresh auth and retry once on many `401`/`403` failures
+  - make artifact media polling wait for usable audio/video URLs
+  - allow `chat.configure()` defaults
+  - update API docs to match the current TypeScript surface
+
 ## 0.3.2
 
 ### Patch Changes

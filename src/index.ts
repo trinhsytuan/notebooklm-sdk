@@ -10,6 +10,7 @@ export type {
   CreateSlideDeckOptions,
   CreateVideoOptions,
   DataTableContent,
+  ReportFormat,
 } from "./api/artifacts.js";
 // API classes (for advanced users)
 export { ArtifactsAPI } from "./api/artifacts.js";

@@ -63,6 +63,51 @@ describe("ArtifactsAPI", () => {
     await expect(api.rename("nb-id", "art-id", "New Title")).resolves.toBe(true);
   });
 
+  it("pollStatus() returns the current artifact status", async () => {
+    mockFetchWithFixture("artifacts_list_1");
+    const firstArtifact = (await api.list("nb-id"))[0];
+    const status = await api.pollStatus("nb-id", firstArtifact.id);
+    expect(status).toEqual({
+      artifactId: firstArtifact.id,
+      status: expect.any(String),
+    });
+  });
+
+  it("waitUntilReady() keeps polling completed media until URL is available", async () => {
+    const getSpy = vi
+      .spyOn(api, "get")
+      .mockResolvedValueOnce({
+        id: "art-id",
+        title: "Audio",
+        kind: "audio",
+        status: "completed",
+        notebookId: "nb-id",
+        audioUrl: null,
+        videoUrl: null,
+        exportUrl: null,
+        shareUrl: null,
+        content: null,
+        _raw: [],
+      })
+      .mockResolvedValueOnce({
+        id: "art-id",
+        title: "Audio",
+        kind: "audio",
+        status: "completed",
+        notebookId: "nb-id",
+        audioUrl: "https://example.com/audio.mp4",
+        videoUrl: null,
+        exportUrl: null,
+        shareUrl: null,
+        content: null,
+        _raw: [],
+      });
+
+    const artifact = await api.waitUntilReady("nb-id", "art-id", 1, 0);
+    expect(getSpy).toHaveBeenCalledTimes(2);
+    expect(artifact.audioUrl).toBe("https://example.com/audio.mp4");
+  });
+
   // We explicitly provide sourceIds to avoid the internal getSourceIds call
   // which would require a multi-fetch mock setup for getNotebook -> createArtifact
 

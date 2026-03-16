@@ -10,6 +10,11 @@ export class NotesAPI {
     return all.filter((n) => !this._isMindMap(n.content));
   }
 
+  async get(notebookId: string, noteId: string): Promise<Note | null> {
+    const all = await this._fetchAll(notebookId);
+    return all.find((note) => note.id === noteId) ?? null;
+  }
+
   async listMindMaps(notebookId: string): Promise<Note[]> {
     const all = await this._fetchAll(notebookId);
     return all.filter((n) => this._isMindMap(n.content));
@@ -53,6 +58,10 @@ export class NotesAPI {
       allowNull: true,
     });
     return true;
+  }
+
+  async deleteMindMap(notebookId: string, mindMapId: string): Promise<boolean> {
+    return this.delete(notebookId, mindMapId);
   }
 
   private async _fetchAll(notebookId: string): Promise<Note[]> {

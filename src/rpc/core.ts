@@ -25,16 +25,19 @@ export interface RPCCallOptions {
 export class RPCCore {
   private readonly auth: AuthTokens;
   private readonly timeoutMs: number;
+  private readonly refreshAuth?: () => Promise<void>;
 
-  constructor(auth: AuthTokens, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  constructor(auth: AuthTokens, timeoutMs = DEFAULT_TIMEOUT_MS, refreshAuth?: () => Promise<void>) {
     this.auth = auth;
     this.timeoutMs = timeoutMs;
+    this.refreshAuth = refreshAuth;
   }
 
   async call(
     methodId: RPCMethodId,
     params: unknown[],
     opts: RPCCallOptions = {},
+    retried = false,
   ): Promise<unknown> {
     const sourcePath = opts.sourcePath ?? "/";
     const allowNull = opts.allowNull ?? false;
@@ -86,6 +89,10 @@ export class RPCCore {
         });
       }
       if (status === 401 || status === 403) {
+        if (!retried && this.refreshAuth) {
+          await this.refreshAuth();
+          return this.call(methodId, params, opts, true);
+        }
         throw new AuthError(`HTTP ${status} calling ${methodId}: authentication required`, {
           methodId,
         });

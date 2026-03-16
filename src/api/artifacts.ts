@@ -533,13 +533,36 @@ export class ArtifactsAPI {
 
     while (Date.now() < deadline) {
       const artifact = await this.get(notebookId, artifactId);
-      if (artifact?.status === "completed") return artifact;
+      if (artifact?.status === "completed") {
+        if (
+          (artifact.kind === "audio" && !artifact.audioUrl) ||
+          (artifact.kind === "video" && !artifact.videoUrl)
+        ) {
+          await sleep(pollInterval * 1000);
+          continue;
+        }
+        return artifact;
+      }
       if (artifact?.status === "failed") {
         throw new ArtifactNotReadyError(artifact.kind, { artifactId, status: "failed" });
       }
       await sleep(pollInterval * 1000);
     }
     throw new ArtifactNotReadyError("artifact", { artifactId, status: "timeout" });
+  }
+
+  /** Get the current status of a generated artifact without waiting. */
+  async pollStatus(notebookId: string, artifactId: string): Promise<GenerationStatus> {
+    const rawList = await this._listRaw(notebookId);
+    for (const item of rawList) {
+      if (!Array.isArray(item) || item[0] !== artifactId) continue;
+      const statusCode = typeof item[4] === "number" ? (item[4] as number) : null;
+      return {
+        artifactId,
+        status: statusCode != null ? artifactStatusFromCode(statusCode) : "pending",
+      };
+    }
+    return { artifactId, status: "pending" };
   }
 
   /** Download audio content as a Buffer. */

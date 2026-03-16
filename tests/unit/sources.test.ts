@@ -102,4 +102,31 @@ describe("SourcesAPI", () => {
     mockFetchWithFixture("sources_refresh");
     await expect(api.refresh("nb-id", "src-id")).resolves.toBe(true);
   });
+
+  it("rename() updates a source title", async () => {
+    mockFetchWithFixture("sources_rename");
+    const result = await api.rename("nb-id", "src-id", "Renamed Source");
+    expect(result).toHaveProperty("id");
+    expect(result.title).toBeTruthy();
+  });
+
+  it("waitForSources() waits for all sources", async () => {
+    const readySource = {
+      id: "src-id",
+      title: "Ready Source",
+      url: null,
+      kind: "web_page" as const,
+      createdAt: null,
+      status: "ready" as const,
+      _typeCode: 5,
+    };
+    const waitSpy = vi
+      .spyOn(api, "waitUntilReady")
+      .mockResolvedValueOnce(readySource)
+      .mockResolvedValueOnce({ ...readySource, id: "src-id-2" });
+
+    const result = await api.waitForSources("nb-id", ["src-id", "src-id-2"]);
+    expect(waitSpy).toHaveBeenCalledTimes(2);
+    expect(result.map((source) => source.id)).toEqual(["src-id", "src-id-2"]);
+  });
 });

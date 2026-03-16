@@ -373,6 +373,33 @@ export class SourcesAPI {
     return true;
   }
 
+  async rename(notebookId: string, sourceId: string, newTitle: string): Promise<Source> {
+    const params = [null, [sourceId], [[[newTitle]]]];
+    const result = await this.rpc.call(RPCMethod.UPDATE_SOURCE, params, {
+      sourcePath: `/notebook/${notebookId}`,
+      allowNull: true,
+    });
+
+    if (Array.isArray(result) && result.length > 0) {
+      try {
+        const parsed = parseSource(result as unknown[]);
+        return parsed.title ? parsed : { ...parsed, title: newTitle };
+      } catch {
+        // fall through to synthetic response
+      }
+    }
+
+    return {
+      id: sourceId,
+      title: newTitle,
+      url: null,
+      kind: "unknown",
+      createdAt: null,
+      status: "ready",
+      _typeCode: null,
+    };
+  }
+
   async waitUntilReady(
     notebookId: string,
     sourceId: string,
@@ -400,6 +427,28 @@ export class SourcesAPI {
     }
 
     throw new SourceTimeoutError(sourceId, timeout, lastStatus);
+  }
+
+  async waitForSources(
+    notebookId: string,
+    sourceIds: string[],
+    timeout = 120,
+    initialInterval = 1,
+    maxInterval = 10,
+    backoffFactor = 1.5,
+  ): Promise<Source[]> {
+    return Promise.all(
+      sourceIds.map((sourceId) =>
+        this.waitUntilReady(
+          notebookId,
+          sourceId,
+          timeout,
+          initialInterval,
+          maxInterval,
+          backoffFactor,
+        ),
+      ),
+    );
   }
 }
 

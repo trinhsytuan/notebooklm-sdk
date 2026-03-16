@@ -6,8 +6,7 @@ import { ResearchAPI } from "./api/research.js";
 import { SettingsAPI } from "./api/settings.js";
 import { SharingAPI } from "./api/sharing.js";
 import { SourcesAPI } from "./api/sources.js";
-import type { AuthTokens, ConnectOptions } from "./auth.js";
-import { connect } from "./auth.js";
+import { type AuthTokens, type ConnectOptions, connect, refreshAuthTokens } from "./auth.js";
 import { RPCCore } from "./rpc/core.js";
 
 export interface ClientOptions {
@@ -37,17 +36,19 @@ export class NotebookLMClient {
   readonly research: ResearchAPI;
   readonly settings: SettingsAPI;
   readonly sharing: SharingAPI;
+  private refreshPromise: Promise<void> | null = null;
 
   private constructor(
     private readonly auth: AuthTokens,
     opts: ClientOptions = {},
   ) {
-    const rpc = new RPCCore(auth, opts.timeoutMs);
+    const refreshAuth = this.refreshTokens.bind(this);
+    const rpc = new RPCCore(auth, opts.timeoutMs, refreshAuth);
     this.notebooks = new NotebooksAPI(rpc);
     this.sources = new SourcesAPI(rpc, auth);
     this.notes = new NotesAPI(rpc);
     this.artifacts = new ArtifactsAPI(rpc, auth, this.notes);
-    this.chat = new ChatAPI(rpc, auth);
+    this.chat = new ChatAPI(rpc, auth, refreshAuth);
     this.research = new ResearchAPI(rpc);
     this.settings = new SettingsAPI(rpc);
     this.sharing = new SharingAPI(rpc);
@@ -69,9 +70,13 @@ export class NotebookLMClient {
    * Refresh CSRF and session tokens (e.g. if they expire mid-session).
    */
   async refreshTokens(): Promise<void> {
-    const { fetchTokens } = await import("./auth.js");
-    const { csrfToken, sessionId } = await fetchTokens(this.auth.cookies);
-    (this.auth as { csrfToken: string }).csrfToken = csrfToken;
-    (this.auth as { sessionId: string }).sessionId = sessionId;
+    if (!this.refreshPromise) {
+      this.refreshPromise = refreshAuthTokens(this.auth)
+        .then(() => undefined)
+        .finally(() => {
+          this.refreshPromise = null;
+        });
+    }
+    await this.refreshPromise;
   }
 }

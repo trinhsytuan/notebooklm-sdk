@@ -150,6 +150,13 @@ export async function fetchTokens(
   return { csrfToken, sessionId };
 }
 
+export async function refreshAuthTokens(auth: AuthTokens): Promise<AuthTokens> {
+  const { csrfToken, sessionId } = await fetchTokens(auth.cookies);
+  auth.csrfToken = csrfToken;
+  auth.sessionId = sessionId;
+  return auth;
+}
+
 function extractCsrfToken(html: string, finalUrl: string): string {
   const match = /"SNlM0e"\s*:\s*"([^"]+)"/.exec(html);
   if (!match?.[1]) {

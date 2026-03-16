@@ -82,4 +82,34 @@ describe("NotebooksAPI", () => {
     expect(desc).toHaveProperty("summary");
     expect(desc).toHaveProperty("suggestedTopics");
   });
+
+  it("getRaw() returns raw notebook data", async () => {
+    mockFetchWithFixture("notebooks_get_raw");
+    const raw = await api.getRaw("test-id");
+    expect(Array.isArray(raw)).toBe(true);
+  });
+
+  it("share() returns a public URL", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("", { status: 200 }));
+    await expect(api.share("test-id", true)).resolves.toEqual({
+      public: true,
+      url: "https://notebooklm.google.com/notebook/test-id",
+      artifactId: null,
+    });
+  });
+
+  it("getShareUrl() returns notebook or artifact URLs", () => {
+    expect(api.getShareUrl("nb-id")).toBe("https://notebooklm.google.com/notebook/nb-id");
+    expect(api.getShareUrl("nb-id", "art-id")).toBe(
+      "https://notebooklm.google.com/notebook/nb-id?artifactId=art-id",
+    );
+  });
+
+  it("getMetadata() returns notebook metadata with sources", async () => {
+    mockFetchWithFixture("notebooks_get");
+    const metadata = await api.getMetadata("test-id");
+    expect(metadata).toHaveProperty("id");
+    expect(metadata).toHaveProperty("title");
+    expect(Array.isArray(metadata.sources)).toBe(true);
+  });
 });

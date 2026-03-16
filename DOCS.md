@@ -61,7 +61,7 @@ const client = await NotebookLMClient.connect({ cookiesFile: "./session.json" })
 
 ### `client.refreshTokens()`
 
-Re-fetches CSRF and session tokens. Call this if you get auth errors mid-session without needing to re-login.
+Re-fetches CSRF and session tokens manually. The SDK now auto-refreshes and retries once on many auth failures, but this remains useful if you want to refresh proactively.
 
 ```ts
 await client.refreshTokens();
@@ -128,6 +128,41 @@ Returns a structured description with suggested topics.
 ```ts
 const desc = await client.notebooks.getDescription(id);
 // NotebookDescription { summary, suggestedTopics }
+```
+
+### `client.notebooks.getRaw(notebookId)`
+
+Returns the raw RPC response for a notebook.
+
+```ts
+const raw = await client.notebooks.getRaw(id);
+```
+
+### `client.notebooks.getMetadata(notebookId)`
+
+Returns notebook details plus a simplified source list.
+
+```ts
+const metadata = await client.notebooks.getMetadata(id);
+// { id, title, createdAt, isOwner, sources }
+```
+
+### `client.notebooks.share(notebookId, publicAccess?, artifactId?)`
+
+Toggles notebook sharing using the share URL format used by NotebookLM.
+
+```ts
+const result = await client.notebooks.share(id, true);
+// { public, url, artifactId }
+```
+
+### `client.notebooks.getShareUrl(notebookId, artifactId?)`
+
+Returns the public URL format for a notebook or specific artifact deep link. This does not toggle sharing by itself.
+
+```ts
+const url = client.notebooks.getShareUrl(id);
+const deepLink = client.notebooks.getShareUrl(id, artifactId);
 ```
 
 ---
@@ -214,6 +249,23 @@ Check if a URL-based source has newer content available since it was last indexe
 ```ts
 const isFresh = await client.sources.checkFreshness(notebookId, source.id);
 if (!isFresh) await client.sources.refresh(notebookId, source.id);
+```
+
+### `client.sources.rename(notebookId, sourceId, newTitle)`
+
+```ts
+const renamed = await client.sources.rename(notebookId, source.id, "New Source Title");
+```
+
+### `client.sources.waitForSources(notebookId, sourceIds, timeoutSecs?, initialIntervalSecs?, maxIntervalSecs?, backoffFactor?)`
+
+Wait for multiple sources to finish processing in parallel.
+
+```ts
+const readySources = await client.sources.waitForSources(
+  notebookId,
+  [source1.id, source2.id],
+);
 ```
 
 ### `client.sources.addDrive(notebookId, fileId, title, mimeType?)`
@@ -351,11 +403,20 @@ const dataTables  = await client.artifacts.listDataTables(notebookId);
 
 ### `client.artifacts.waitUntilReady(notebookId, artifactId, timeoutSecs?, pollIntervalSecs?)`
 
-Polls until artifact generation completes. Generation typically takes 1–10 minutes.
+Polls until artifact generation completes. For audio and video, this waits until the media URL is actually available, not just until the status flips to `completed`.
 
 ```ts
 const artifact = await client.artifacts.waitUntilReady(notebookId, artifactId);
 await client.artifacts.waitUntilReady(notebookId, artifactId, 600, 5); // 10min timeout
+```
+
+### `client.artifacts.pollStatus(notebookId, artifactId)`
+
+Returns the current artifact status without waiting.
+
+```ts
+const status = await client.artifacts.pollStatus(notebookId, artifactId);
+// { artifactId, status }
 ```
 
 ### Download
@@ -441,6 +502,24 @@ const turns = await client.chat.getConversationTurns(notebookId, convId);
 // ConversationTurn[] — { query, answer, turnNumber }
 ```
 
+### `client.chat.getHistory(notebookId, limit?, conversationId?)`
+
+Returns `[question, answer]` pairs oldest-first.
+
+```ts
+const history = await client.chat.getHistory(notebookId);
+const specific = await client.chat.getHistory(notebookId, 50, convId);
+```
+
+### `client.chat.getCachedTurns(conversationId)`
+
+Returns locally cached turns for a conversation started via this client instance.
+
+```ts
+const cached = client.chat.getCachedTurns(convId);
+// ConversationTurn[]
+```
+
 ### `client.chat.setMode(notebookId, mode)`
 
 Set the chat response style for a notebook. Persists on the server.
@@ -459,7 +538,7 @@ await client.chat.setMode(notebookId, ChatMode.CONCISE);
 | `DETAILED` | Verbose, thorough answers |
 | `LEARNING_GUIDE` | Educational focus with longer responses |
 
-### `client.chat.configure(notebookId, goal, length, customPrompt?)`
+### `client.chat.configure(notebookId, goal?, length?, customPrompt?)`
 
 Low-level version of `setMode` — set goal and response length independently. Use this when you need a custom system prompt or a combination not covered by `ChatMode`.
 
@@ -476,6 +555,9 @@ await client.chat.configure(
 
 // Learning guide with longer responses
 await client.chat.configure(notebookId, ChatGoal.LEARNING_GUIDE, ChatResponseLength.LONGER);
+
+// Use defaults explicitly
+await client.chat.configure(notebookId);
 ```
 
 | `ChatGoal` | Description |
@@ -560,6 +642,12 @@ for (const mm of mindMaps) {
 }
 ```
 
+### `client.notes.get(notebookId, noteId)`
+
+```ts
+const note = await client.notes.get(notebookId, noteId);
+```
+
 ### `client.notes.create(notebookId, content, title?)`
 
 ```ts
@@ -577,6 +665,12 @@ await client.notes.update(notebookId, note.id, "Updated content.", "New Title");
 
 ```ts
 await client.notes.delete(notebookId, note.id);
+```
+
+### `client.notes.deleteMindMap(notebookId, mindMapId)`
+
+```ts
+await client.notes.deleteMindMap(notebookId, mindMapId);
 ```
 
 ---
