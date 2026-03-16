@@ -24,6 +24,25 @@ npm install notebooklm-sdk
 bun add notebooklm-sdk
 ```
 
+## For AI Agents
+
+With [Context7](https://context7.com/agmmnn/notebooklm-sdk):
+
+```text
+Use Context7 to read the NotebookLM SDK docs and create a basic audio podcast generation flow in TypeScript using the documented public SDK API.
+```
+
+<details>
+<summary>Without Context7</summary>
+
+```text
+Install `notebooklm-sdk` and create a basic audio podcast generation flow in TypeScript using the documented public SDK API.
+Docs: https://raw.githubusercontent.com/agmmnn/notebooklm-sdk/refs/heads/master/DOCS.md
+Example: https://raw.githubusercontent.com/agmmnn/notebooklm-sdk/refs/heads/master/examples/audio.ts
+```
+
+</details>
+
 ## Quickstart
 
 ```bash
