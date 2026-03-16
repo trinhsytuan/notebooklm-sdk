@@ -164,10 +164,14 @@ bun run examples/mind-map.ts        # generate and download mind map JSON
 bun run examples/data-table.ts      # generate and download a CSV data table
 bun run examples/notes.ts           # create, update, list, and delete notes
 bun run examples/research.ts        # web research and import sources
-bun run examples/research-and-chat.ts  # research → import → chat
+bun run examples/research-and-chat.ts  # research -> import -> chat
+bun run examples/research-and-video.ts # fast web research -> import -> cinematic video
 bun run examples/full-lifecycle.ts  # create, add sources, chat, delete
 bun run examples/download.ts        # download all completed artifacts
 ```
+
+Example result for [`research-and-video.ts`](examples/research-and-video.ts):
+https://github.com/user-attachments/assets/1d5fce2a-123c-4a3d-b9c5-a56ef3bc4423
 
 ## Requirements
 
