@@ -1,5 +1,15 @@
 # notebooklm-sdk
 
+## 0.3.4
+
+### Patch Changes
+
+- Improve long-running artifact polling ergonomics.
+
+  - add `artifacts.pollUntilReady()` with timeout, interval, `onTick`, and `AbortSignal` support
+  - keep stricter audio/video readiness behavior so polling waits for usable media URLs
+  - add a cinematic video example and update artifact polling docs/examples to use the higher-level helper
+
 ## 0.3.3
 
 ### Patch Changes
