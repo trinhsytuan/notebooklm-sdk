@@ -41,7 +41,9 @@ const client = await NotebookLMClient.connect({ cookiesFile: "./session.json" })
 
 **Auto-discovery order** (when called with no args):
 1. `~/.notebooklm/session.json` — written by `npx notebooklm-sdk login`
-2. `NOTEBOOKLM_COOKIES` env var — raw cookie string
+2. `NOTEBOOKLM_COOKIES_FILE` env var — path to a Playwright `storage_state.json`
+3. `./storage_state.json` in the current working directory
+4. `NOTEBOOKLM_COOKIES` env var — raw cookie string
 
 **`ConnectOptions`**
 
@@ -153,16 +155,33 @@ const source = await client.sources.addUrl(notebookId, "https://example.com");
 const source = await client.sources.addText(notebookId, "Plain text content", "My Doc");
 ```
 
-### `client.sources.addFile(notebookId, buffer, filename, mimeType?)`
+### `client.sources.addFile(notebookId, filePath, mimeType, opts?)`
 
-Upload a file buffer directly. Supports PDF, Markdown, plain text, etc.
+Upload a file from disk by path. Supports PDF, Markdown, plain text, etc.
+
+```ts
+const source = await client.sources.addFile(
+  notebookId,
+  "./document.pdf",
+  "application/pdf",
+);
+```
+
+### `client.sources.addFileBuffer(notebookId, data, fileName, mimeType, opts?)`
+
+Upload a file from an in-memory `Buffer` or `Uint8Array`.
 
 ```ts
 const buf = await fs.readFile("document.pdf");
-const source = await client.sources.addFile(notebookId, buf, "document.pdf", "application/pdf");
+const source = await client.sources.addFileBuffer(
+  notebookId,
+  buf,
+  "document.pdf",
+  "application/pdf",
+);
 ```
 
-### `client.sources.waitUntilReady(notebookId, sourceId, timeoutSecs?, pollIntervalSecs?)`
+### `client.sources.waitUntilReady(notebookId, sourceId, timeoutSecs?, initialIntervalSecs?, maxIntervalSecs?, backoffFactor?)`
 
 Polls until the source finishes processing. Throws `SourceTimeoutError` or `SourceProcessingError` on failure.
 
@@ -240,17 +259,29 @@ Artifacts are AI-generated outputs: podcasts, videos, reports, quizzes, and flas
 Most artifact methods return a `GenerationStatus` with an `artifactId`. Use `waitUntilReady` to poll until done.
 
 ```ts
+import {
+  AudioFormat,
+  AudioLength,
+  VideoFormat,
+  VideoStyle,
+  SlideDeckFormat,
+  SlideDeckLength,
+  InfographicOrientation,
+  InfographicDetail,
+  InfographicStyle,
+} from "notebooklm-sdk";
+
 // Audio Overview (podcast)
 const { artifactId } = await client.artifacts.createAudio(notebookId, {
-  format: "deep_dive",   // "deep_dive" | "brief" | "critique" | "debate"
-  length: "default",     // "default" | "short" | "long"
+  format: AudioFormat.DEEP_DIVE,
+  length: AudioLength.DEFAULT,
   language: "en",
 });
 
 // Video Overview
 const { artifactId } = await client.artifacts.createVideo(notebookId, {
-  format: "explainer",   // "explainer" | "brief" | "cinematic"
-  style: "classic",      // "auto_select" | "classic" | "whiteboard" | "kawaii" | ...
+  format: VideoFormat.CINEMATIC,
+  style: VideoStyle.CLASSIC,
 });
 
 // Get AI-suggested report formats before generating
@@ -266,15 +297,15 @@ const { artifactId } = await client.artifacts.createReport(notebookId, {
 
 // Slide Deck
 const { artifactId } = await client.artifacts.createSlideDeck(notebookId, {
-  format: "detailed_deck", // "detailed_deck" | "presenter_slides"
-  length: "default",       // "default" | "short"
+  format: SlideDeckFormat.DETAILED_DECK,
+  length: SlideDeckLength.DEFAULT,
 });
 
 // Infographic
 const { artifactId } = await client.artifacts.createInfographic(notebookId, {
-  orientation: "landscape", // "landscape" | "portrait" | "square"
-  detail: "standard",       // "concise" | "standard" | "detailed"
-  style: "professional",    // "auto_select" | "professional" | "bento_grid" | ...
+  orientation: InfographicOrientation.LANDSCAPE,
+  detail: InfographicDetail.STANDARD,
+  style: InfographicStyle.PROFESSIONAL,
 });
 
 // Data Table
@@ -361,10 +392,15 @@ const url = await client.artifacts.exportDataTable(notebookId, artifactId, "My T
 Edit an individual slide in a completed slide deck using a natural language prompt.
 
 ```ts
-const { artifactId } = await client.artifacts.waitUntilReady(notebookId, slideDeckArtifactId);
+await client.artifacts.waitUntilReady(notebookId, slideDeckArtifactId);
 
 // slideIndex is zero-based
-const status = await client.artifacts.reviseSlide(notebookId, artifactId, 0, "Move the title to the top");
+const status = await client.artifacts.reviseSlide(
+  notebookId,
+  slideDeckArtifactId,
+  0,
+  "Move the title to the top",
+);
 ```
 
 ---
@@ -464,7 +500,7 @@ Run a web research session and import the results as notebook sources.
 
 | Param | Type | Default | Description |
 |---|---|---|---|
-| `source` | `"web" \| "notebook"` | `"web"` | Research source |
+| `source` | `"web" \| "drive"` | `"web"` | Research source |
 | `mode` | `"fast" \| "deep"` | `"fast"` | Research depth |
 
 ```ts
@@ -576,7 +612,7 @@ await client.sharing.addUser(notebookId, "user@example.com", SharePermission.VIE
 |---|---|
 | `VIEWER` | Read-only access |
 | `EDITOR` | Can edit sources and notes |
-| `OWNER` | Full control |
+| `OWNER` | Exists in the enum, but `addUser()` rejects assigning owner |
 
 ### `client.sharing.updateUser(notebookId, email, permission)`
 
