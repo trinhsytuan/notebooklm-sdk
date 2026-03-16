@@ -171,6 +171,7 @@ bun run examples/download.ts        # download all completed artifacts
 ```
 
 Example result for [`research-and-video.ts`](examples/research-and-video.ts):
+
 https://github.com/user-attachments/assets/1d5fce2a-123c-4a3d-b9c5-a56ef3bc4423
 
 ## Requirements
