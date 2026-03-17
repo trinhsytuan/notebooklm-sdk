@@ -179,6 +179,10 @@ https://github.com/user-attachments/assets/1d5fce2a-123c-4a3d-b9c5-a56ef3bc4423
 - Node.js 18+ or Bun 1.0+
 - A Google account with access to [NotebookLM](https://notebooklm.google.com)
 
+## Related
+
+- [n8n-nodes-notebooklm-sdk](https://github.com/agmmnn/n8n-nodes-notebooklm-sdk) — Use notebooklm-sdk in n8n workflows
+
 ## Contributing
 
 Issues and PRs welcome. If the API breaks after a Google update, please open an issue with the error and request/response details.
