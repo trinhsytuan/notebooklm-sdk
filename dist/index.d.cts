@@ -321,6 +321,7 @@ interface ChatReference {
     sourceId: string;
     title: string | null;
     url: string | null;
+    excerpt?: string | null;
 }
 interface AskResult {
     answer: string;

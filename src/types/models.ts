@@ -143,6 +143,7 @@ export interface ChatReference {
   sourceId: string;
   title: string | null;
   url: string | null;
+  excerpt?: string | null;
 }
 
 export interface AskResult {

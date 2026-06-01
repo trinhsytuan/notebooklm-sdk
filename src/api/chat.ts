@@ -587,6 +587,7 @@ function extractCitationReference(data: unknown, index: number): ChatReference |
       sourceId: citationId,
       title: null,
       url: null,
+      excerpt: null,
     };
   }
 
@@ -603,6 +604,7 @@ function extractCitationReference(data: unknown, index: number): ChatReference |
         sourceId,
         title: null,
         url: null,
+        excerpt: extractCitationExcerpt(detail),
       };
     }
   }
@@ -616,7 +618,31 @@ function extractCitationReference(data: unknown, index: number): ChatReference |
     sourceId: fallbackSourceId,
     title: null,
     url: null,
+    excerpt: extractCitationExcerpt(detail),
   };
+}
+
+function extractCitationExcerpt(detail: unknown[] | null): string | null {
+  if (!Array.isArray(detail)) return null;
+
+  const strings = extractNonTechnicalStrings(detail[4]);
+  const excerpt = strings.join("\n").replace(/\s+\n/g, "\n").trim();
+
+  return excerpt ? excerpt.slice(0, 2500) : null;
+}
+
+function extractNonTechnicalStrings(data: unknown, depth = 12): string[] {
+  if (depth <= 0 || data == null) return [];
+
+  if (typeof data === "string") {
+    if (UUID_RE.test(data)) return [];
+    if (/^https?:\/\//i.test(data)) return [];
+    return data.trim() ? [data.trim()] : [];
+  }
+
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap((item) => extractNonTechnicalStrings(item, depth - 1));
 }
 
 function randomUUID(): string {

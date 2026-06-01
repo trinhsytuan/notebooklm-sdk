@@ -1670,7 +1670,8 @@ function extractCitationReference(data, index) {
       citationId: null,
       sourceId: citationId,
       title: null,
-      url: null
+      url: null,
+      excerpt: null
     };
   }
   for (const pointer of sourcePointers) {
@@ -1684,7 +1685,8 @@ function extractCitationReference(data, index) {
         citationId,
         sourceId,
         title: null,
-        url: null
+        url: null,
+        excerpt: extractCitationExcerpt(detail)
       };
     }
   }
@@ -1695,8 +1697,25 @@ function extractCitationReference(data, index) {
     citationId,
     sourceId: fallbackSourceId,
     title: null,
-    url: null
+    url: null,
+    excerpt: extractCitationExcerpt(detail)
   };
+}
+function extractCitationExcerpt(detail) {
+  if (!Array.isArray(detail)) return null;
+  const strings = extractNonTechnicalStrings(detail[4]);
+  const excerpt = strings.join("\n").replace(/\s+\n/g, "\n").trim();
+  return excerpt ? excerpt.slice(0, 2500) : null;
+}
+function extractNonTechnicalStrings(data, depth = 12) {
+  if (depth <= 0 || data == null) return [];
+  if (typeof data === "string") {
+    if (UUID_RE.test(data)) return [];
+    if (/^https?:\/\//i.test(data)) return [];
+    return data.trim() ? [data.trim()] : [];
+  }
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((item) => extractNonTechnicalStrings(item, depth - 1));
 }
 function randomUUID() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
