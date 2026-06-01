@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { ChatAPI } from "../../src/api/chat.js";
 import { ChatGoal, ChatResponseLength, RPCMethod } from "../../src/types/enums.js";
@@ -101,6 +102,38 @@ describe("ChatAPI", () => {
     const result = await api.ask("nb-id", "Question?");
     expect(refreshAuth).toHaveBeenCalledTimes(1);
     expect(result.answer).toBe("Answer");
+    vi.unstubAllGlobals();
+  });
+
+  it("ask() maps citation references to source ids", async () => {
+    const rpc = {
+      call: vi.fn(),
+      getSourceIds: vi.fn().mockResolvedValue(["src-id"]),
+    };
+    const api = new ChatAPI(rpc as never, auth);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(readFileSync("tests/fixtures/responses/chat_ask_with_references.txt"), {
+          status: 200,
+        }),
+      ),
+    );
+
+    const result = await api.ask("nb-id", "Question?");
+
+    expect(result.references).toHaveLength(48);
+    expect(result.references[0]).toMatchObject({
+      index: 1,
+      citationId: "b7e19cd2-f008-4419-a9a8-3f9953adf7e8",
+      sourceId: "51c16a20-1423-4491-a49f-735737776dd9",
+    });
+    expect(result.references[1]).toMatchObject({
+      index: 2,
+      citationId: "2b03d0b5-8739-456e-ae14-42bca683fb65",
+      sourceId: "5663cdfd-266c-4d46-a37b-fa15fb72dc1d",
+    });
     vi.unstubAllGlobals();
   });
 

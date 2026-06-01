@@ -316,6 +316,8 @@ interface ShareStatus {
     shareUrl: string | null;
 }
 interface ChatReference {
+    index?: number;
+    citationId?: string | null;
     sourceId: string;
     title: string | null;
     url: string | null;

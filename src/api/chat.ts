@@ -362,7 +362,7 @@ class StreamingChatResponseParser {
   private bestUnmarkedAnswer = "";
   private streamedAnswer = "";
   private serverConvId: string | null = null;
-  private readonly references: ChatReference[] = [];
+  private references: ChatReference[] = [];
 
   feed(text: string): AskStreamChunk[] {
     this.lineBuffer += text;
@@ -480,15 +480,18 @@ class StreamingChatResponseParser {
         this.serverConvId = (convData as unknown[])[0] as string;
       }
 
-      // Extract references (sourceIds) from first[4][3]
+      // Extract citation references from first[4][3]. Each citation entry
+      // starts with a citation/chunk id; the document source id lives inside
+      // the source pointer metadata at entry[1][5][*][0][0].
       if (Array.isArray(typeInfo) && typeInfo.length > 3) {
         const citations = typeInfo[3];
         if (Array.isArray(citations)) {
-          for (const cite of citations as unknown[]) {
-            const sourceId = extractUuid(cite);
-            if (sourceId) {
-              this.references.push({ sourceId, title: null, url: null });
-            }
+          const nextReferences = (citations as unknown[])
+            .map((cite, index) => extractCitationReference(cite, index + 1))
+            .filter((ref): ref is ChatReference => Boolean(ref));
+
+          if (nextReferences.length > 0) {
+            this.references = nextReferences;
           }
         }
       }
@@ -568,6 +571,52 @@ function extractUuid(data: unknown, depth = 8): string | null {
     }
   }
   return null;
+}
+
+function extractCitationReference(data: unknown, index: number): ChatReference | null {
+  if (!Array.isArray(data)) return null;
+
+  const citationId = extractUuid(data[0]);
+  const detail = Array.isArray(data[1]) ? data[1] : null;
+  const sourcePointers = Array.isArray(detail?.[5]) ? (detail[5] as unknown[]) : [];
+
+  if (citationId && !detail) {
+    return {
+      index,
+      citationId: null,
+      sourceId: citationId,
+      title: null,
+      url: null,
+    };
+  }
+
+  for (const pointer of sourcePointers) {
+    if (!Array.isArray(pointer)) continue;
+    const sourceGroup = pointer[0];
+    if (!Array.isArray(sourceGroup)) continue;
+    const sourceId = extractUuid(sourceGroup[0]);
+
+    if (sourceId) {
+      return {
+        index,
+        citationId,
+        sourceId,
+        title: null,
+        url: null,
+      };
+    }
+  }
+
+  const fallbackSourceId = extractUuid(data);
+  if (!fallbackSourceId || fallbackSourceId === citationId) return null;
+
+  return {
+    index,
+    citationId,
+    sourceId: fallbackSourceId,
+    title: null,
+    url: null,
+  };
 }
 
 function randomUUID(): string {
