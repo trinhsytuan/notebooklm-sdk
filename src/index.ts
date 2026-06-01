@@ -15,7 +15,7 @@ export type {
 } from "./api/artifacts.js";
 // API classes (for advanced users)
 export { ArtifactsAPI } from "./api/artifacts.js";
-export type { AskOptions } from "./api/chat.js";
+export type { AskOptions, AskStreamChunk, ChatStreamEvent, ChatStreamOptions } from "./api/chat.js";
 export { ChatAPI } from "./api/chat.js";
 export { NotebooksAPI } from "./api/notebooks.js";
 export { NotesAPI } from "./api/notes.js";

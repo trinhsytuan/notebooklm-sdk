@@ -506,6 +506,26 @@ console.log(res.references); // ChatReference[]
 console.log(res.conversationId);
 ```
 
+**Stream typing chunks:**
+
+```ts
+const res = await client.chat.ask(notebookId, "Summarize the key points.", {
+  onChunk: ({ text }) => {
+    socket.emit("chat:typing", text);
+  },
+});
+socket.emit("chat:done", res.answer);
+```
+
+**Async iterator stream:**
+
+```ts
+for await (const event of client.chat.stream(notebookId, "Summarize the key points.")) {
+  if (event.type === "text") socket.emit("chat:typing", event.text);
+  if (event.type === "done") socket.emit("chat:done", event.result.answer);
+}
+```
+
 **Continue a conversation:**
 
 ```ts

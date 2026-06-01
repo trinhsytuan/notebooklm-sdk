@@ -15,6 +15,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export interface AskOptions {
   conversationId?: string;
   sourceIds?: string[];
+  onChunk?: (chunk: AskStreamChunk) => void | Promise<void>;
 }
 
 interface CachedTurn {
@@ -22,6 +23,23 @@ interface CachedTurn {
   answer: string;
   turnNumber: number;
 }
+
+export interface AskStreamChunk {
+  /** Newly received answer text. Append this for simple typing UIs. */
+  text: string;
+  /** Full answer accumulated so far. Prefer this for exact UI snapshots. */
+  answer: string;
+  conversationId: string | null;
+  references: ChatReference[];
+  /** True when the server revised previous text instead of only appending. */
+  isReplacement: boolean;
+}
+
+export type ChatStreamOptions = Omit<AskOptions, "onChunk">;
+
+export type ChatStreamEvent =
+  | ({ type: "text" } & AskStreamChunk)
+  | { type: "done"; result: AskResult };
 
 export class ChatAPI {
   private readonly conversationCache = new Map<string, CachedTurn[]>();
@@ -34,6 +52,32 @@ export class ChatAPI {
   ) {}
 
   async ask(notebookId: string, query: string, opts: AskOptions = {}): Promise<AskResult> {
+    const { onChunk, ...streamOpts } = opts;
+    let result: AskResult | null = null;
+
+    for await (const event of this.stream(notebookId, query, streamOpts)) {
+      if (event.type === "text") {
+        await onChunk?.({
+          text: event.text,
+          answer: event.answer,
+          conversationId: event.conversationId,
+          references: event.references,
+          isReplacement: event.isReplacement,
+        });
+      } else {
+        result = event.result;
+      }
+    }
+
+    if (!result) throw new ChatError("Chat request completed without a result");
+    return result;
+  }
+
+  async *stream(
+    notebookId: string,
+    query: string,
+    opts: ChatStreamOptions = {},
+  ): AsyncGenerator<ChatStreamEvent> {
     const sourceIds = opts.sourceIds ?? (await this.rpc.getSourceIds(notebookId));
     const isNew = !opts.conversationId;
     const conversationId = opts.conversationId ?? randomUUID();
@@ -69,8 +113,18 @@ export class ChatAPI {
 
     const response = await this._postChatRequest(`${QUERY_URL}?${urlParams.toString()}`, body);
 
-    const text = await response.text();
-    const { answer, conversationId: serverConvId, references } = parseStreamingResponse(text);
+    const parser = new StreamingChatResponseParser();
+    for await (const textChunk of readResponseText(response)) {
+      for (const chunk of parser.feed(textChunk)) {
+        yield { type: "text", ...chunk };
+      }
+    }
+
+    for (const chunk of parser.finish()) {
+      yield { type: "text", ...chunk };
+    }
+
+    const { answer, conversationId: serverConvId, references } = parser.result();
 
     const finalConvId = serverConvId ?? conversationId;
     const cached = this.conversationCache.get(finalConvId) ?? [];
@@ -78,7 +132,10 @@ export class ChatAPI {
     cached.push({ query, answer, turnNumber });
     this.conversationCache.set(finalConvId, cached);
 
-    return { answer, conversationId: finalConvId, turnNumber, references };
+    yield {
+      type: "done",
+      result: { answer, conversationId: finalConvId, turnNumber, references },
+    };
   }
 
   async getConversationTurns(
@@ -291,24 +348,105 @@ interface ParsedResponse {
 }
 
 function parseStreamingResponse(rawText: string): ParsedResponse {
-  let text = rawText;
-  if (text.startsWith(")]}'")) text = text.slice(4);
+  const parser = new StreamingChatResponseParser();
+  parser.feed(rawText);
+  parser.finish();
+  return parser.result();
+}
 
-  const lines = text.trim().split("\n");
-  let bestMarkedAnswer = "";
-  let bestUnmarkedAnswer = "";
-  let serverConvId: string | null = null;
-  const references: ChatReference[] = [];
+class StreamingChatResponseParser {
+  private lineBuffer = "";
+  private prefixChecked = false;
+  private expectingPayload = false;
+  private bestMarkedAnswer = "";
+  private bestUnmarkedAnswer = "";
+  private streamedAnswer = "";
+  private serverConvId: string | null = null;
+  private readonly references: ChatReference[] = [];
 
-  function processChunk(jsonStr: string): void {
+  feed(text: string): AskStreamChunk[] {
+    this.lineBuffer += text;
+    if (!this.stripPrefixIfReady()) return [];
+
+    return this.drainCompleteLines();
+  }
+
+  finish(): AskStreamChunk[] {
+    if (!this.prefixChecked) {
+      if (this.lineBuffer.startsWith(")]}'")) this.lineBuffer = this.lineBuffer.slice(4);
+      this.prefixChecked = true;
+    }
+
+    const chunks = this.drainCompleteLines();
+    const finalLine = this.lineBuffer.trim();
+    if (finalLine) chunks.push(...this.processLine(finalLine));
+    this.lineBuffer = "";
+    return chunks;
+  }
+
+  result(): ParsedResponse {
+    return {
+      answer: this.bestMarkedAnswer || this.bestUnmarkedAnswer,
+      conversationId: this.serverConvId,
+      references: this.references,
+    };
+  }
+
+  private stripPrefixIfReady(): boolean {
+    if (this.prefixChecked) return true;
+
+    if (this.lineBuffer.startsWith(")]}'")) {
+      const match = /^\)\]\}'\r?\n/.exec(this.lineBuffer);
+      if (!match) return false;
+      this.lineBuffer = this.lineBuffer.slice(match[0].length);
+    } else if (this.lineBuffer.length < 4 && ")]}'".startsWith(this.lineBuffer)) {
+      return false;
+    }
+
+    this.prefixChecked = true;
+    return true;
+  }
+
+  private drainCompleteLines(): AskStreamChunk[] {
+    const chunks: AskStreamChunk[] = [];
+    let newlineIndex = this.lineBuffer.indexOf("\n");
+
+    while (newlineIndex !== -1) {
+      const line = this.lineBuffer.slice(0, newlineIndex).trim();
+      this.lineBuffer = this.lineBuffer.slice(newlineIndex + 1);
+      chunks.push(...this.processLine(line));
+      newlineIndex = this.lineBuffer.indexOf("\n");
+    }
+
+    return chunks;
+  }
+
+  private processLine(line: string): AskStreamChunk[] {
+    if (!line) return [];
+
+    if (this.expectingPayload) {
+      this.expectingPayload = false;
+      return this.processPayload(line);
+    }
+
+    if (/^\d+$/.test(line)) {
+      this.expectingPayload = true;
+      return [];
+    }
+
+    return this.processPayload(line);
+  }
+
+  private processPayload(jsonStr: string): AskStreamChunk[] {
     let data: unknown;
     try {
       data = JSON.parse(jsonStr);
     } catch {
-      return;
+      return [];
     }
-    if (!Array.isArray(data)) return;
+    if (!Array.isArray(data)) return [];
 
+    const chunks: AskStreamChunk[] = [];
     for (const item of data as unknown[]) {
       if (!Array.isArray(item) || item.length < 3 || (item as unknown[])[0] !== "wrb.fr") continue;
       const innerJson = (item as unknown[])[2];
@@ -334,12 +472,12 @@ function parseStreamingResponse(rawText: string): ParsedResponse {
 
       const convData = (first as unknown[])[2];
       if (
-        !serverConvId &&
+        !this.serverConvId &&
         Array.isArray(convData) &&
         convData.length > 0 &&
         typeof (convData as unknown[])[0] === "string"
       ) {
-        serverConvId = (convData as unknown[])[0] as string;
+        this.serverConvId = (convData as unknown[])[0] as string;
       }
 
       // Extract references (sourceIds) from first[4][3]
@@ -349,43 +487,75 @@ function parseStreamingResponse(rawText: string): ParsedResponse {
           for (const cite of citations as unknown[]) {
             const sourceId = extractUuid(cite);
             if (sourceId) {
-              references.push({ sourceId, title: null, url: null });
+              this.references.push({ sourceId, title: null, url: null });
             }
           }
         }
       }
 
-      if (isAnswer && answerText.length > bestMarkedAnswer.length) {
-        bestMarkedAnswer = answerText;
-      } else if (!isAnswer && answerText.length > bestUnmarkedAnswer.length) {
-        bestUnmarkedAnswer = answerText;
+      if (isAnswer && answerText.length > this.bestMarkedAnswer.length) {
+        this.bestMarkedAnswer = answerText;
+        const chunk = this.buildTextChunk(answerText);
+        if (chunk) chunks.push(chunk);
+      } else if (!isAnswer && answerText.length > this.bestUnmarkedAnswer.length) {
+        this.bestUnmarkedAnswer = answerText;
       }
     }
+
+    return chunks;
   }
 
-  let i = 0;
-  while (i < lines.length) {
-    const line = (lines[i] ?? "").trim();
-    if (!line) {
-      i++;
-      continue;
-    }
-    if (/^\d+$/.test(line)) {
-      i++;
-      const next = lines[i];
-      if (next !== undefined) processChunk(next);
-      i++;
-    } else {
-      processChunk(line);
-      i++;
-    }
+  private buildTextChunk(answerText: string): AskStreamChunk | null {
+    if (answerText === this.streamedAnswer) return null;
+
+    const isReplacement =
+      this.streamedAnswer.length > 0 && !answerText.startsWith(this.streamedAnswer);
+    const text = isReplacement ? answerText : answerText.slice(this.streamedAnswer.length);
+    this.streamedAnswer = answerText;
+    if (!text) return null;
+
+    return {
+      text,
+      answer: answerText,
+      conversationId: this.serverConvId,
+      references: [...this.references],
+      isReplacement,
+    };
+  }
+}
+
+async function* readResponseText(response: Response): AsyncGenerator<string> {
+  if (!response.body) {
+    yield await response.text();
+    return;
   }
 
-  return {
-    answer: bestMarkedAnswer || bestUnmarkedAnswer,
-    conversationId: serverConvId,
-    references,
-  };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let completed = false;
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) {
+        completed = true;
+        break;
+      }
+      if (value) yield decoder.decode(value, { stream: true });
+    }
+
+    const tail = decoder.decode();
+    if (tail) yield tail;
+  } finally {
+    if (!completed) {
+      try {
+        await reader.cancel();
+      } catch {
+        // ignore cancellation errors
+      }
+    }
+    reader.releaseLock();
+  }
 }
 
 function extractUuid(data: unknown, depth = 8): string | null {

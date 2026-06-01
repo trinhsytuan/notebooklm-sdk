@@ -69,6 +69,12 @@ const mp3 = await client.artifacts.downloadAudio(id, audio.id);
 // Chat with the sources
 const res = await client.chat.ask(id, "Summarize the key points.");
 console.log(res.answer);
+
+// Stream typing chunks while still receiving the final result
+const streamed = await client.chat.ask(id, "Summarize the key points.", {
+  onChunk: ({ text }) => process.stdout.write(text),
+});
+console.log(streamed.conversationId);
 ```
 
 ## Use cases
