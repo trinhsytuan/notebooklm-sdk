@@ -1,0 +1,39 @@
+import { a as CookieMap } from './auth-VG-Wp7XL.js';
+export { A as AuthTokens, C as ConnectOptions, b as buildCookieHeader, c as buildGoogleCookieHeader, d as connect, f as fetchTokens, l as loadCookiesFromFile, e as loadCookiesFromMap, g as loadCookiesFromObject, h as loadCookiesFromString, r as refreshAuthTokens } from './auth-VG-Wp7XL.js';
+
+/** Default directory for storing NotebookLM session files (~/.notebooklm). */
+declare const DEFAULT_SESSION_DIR: string;
+/** Default session file path (~/.notebooklm/session.json). */
+declare const DEFAULT_SESSION_FILE: string;
+interface LoginOptions {
+    /**
+     * Path to a directory for a persistent browser profile.
+     * Defaults to ~/.notebooklm/.auth_profile.
+     */
+    persistFolder?: string;
+    /**
+     * Browser type to use. Default is "chromium".
+     */
+    browserType?: "chromium" | "msedge";
+    /**
+     * Whether to run the browser in headless mode. Default is false.
+     * Headless login is usually blocked by Google, so this is mostly for testing or refreshes.
+     */
+    headless?: boolean;
+}
+/**
+ * Log in to NotebookLM via a headful browser window.
+ *
+ * Flow:
+ * 1. Opens browser to NotebookLM.
+ * 2. If already logged in (via persistFolder), it proceeds.
+ * 3. If not, it waits for the user to reach the home page.
+ * 4. Captures cookies and returns them.
+ */
+declare function login(opts?: LoginOptions): Promise<{
+    cookies: CookieMap;
+    storageState: any;
+    cookieHeader: string;
+}>;
+
+export { CookieMap, DEFAULT_SESSION_DIR, DEFAULT_SESSION_FILE, type LoginOptions, login };
