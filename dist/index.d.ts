@@ -270,6 +270,16 @@ interface SourceFulltext {
     url: string | null;
     charCount: number;
 }
+interface SourceDownload {
+    sourceId: string;
+    title: string;
+    fileName: string;
+    mimeType: string;
+    content: string;
+    blob: Blob;
+    url: string | null;
+    charCount: number;
+}
 interface Artifact {
     id: string;
     title: string | null;
@@ -644,6 +654,15 @@ interface AddSourceOptions {
     waitUntilReady?: boolean;
     waitTimeout?: number;
 }
+type SourceDownloadFormat = "markdown" | "text";
+interface SourceDownloadOptions {
+    /** Defaults to markdown so metadata can be preserved cleanly. */
+    format?: SourceDownloadFormat;
+    /** Override the generated download file name. */
+    fileName?: string;
+    /** Include title/source metadata at the top of the downloaded text. Defaults to true. */
+    includeMetadata?: boolean;
+}
 declare class SourcesAPI {
     private readonly rpc;
     private readonly auth;
@@ -661,6 +680,12 @@ declare class SourcesAPI {
     getGuide(notebookId: string, sourceId: string): Promise<SourceGuide>;
     /** Get the full indexed text content of a source. */
     getFulltext(notebookId: string, sourceId: string): Promise<SourceFulltext>;
+    /**
+     * Build a downloadable text/markdown file from the indexed source content.
+     * NotebookLM does not expose the original uploaded file for every source type,
+     * so this returns the text NotebookLM indexed for chat and artifact generation.
+     */
+    getDownload(notebookId: string, sourceId: string, opts?: SourceDownloadOptions): Promise<SourceDownload>;
     /** Check if a source has newer content available. Returns true if fresh, false if stale. */
     checkFreshness(notebookId: string, sourceId: string): Promise<boolean>;
     delete(notebookId: string, sourceId: string): Promise<boolean>;
@@ -710,4 +735,4 @@ declare class NotebookLMClient {
     refreshTokens(): Promise<void>;
 }
 
-export { type AddSourceOptions, type Artifact, type ArtifactStatus, type ArtifactType, ArtifactTypeCode, ArtifactsAPI, type AskOptions, type AskResult, type AskStreamChunk, AudioFormat, type AudioFormatValue, AudioLength, type AudioLengthValue, AuthTokens, ChatAPI, ChatGoal, type ChatGoalValue, ChatMode, type ChatModeValue, type ChatReference, ChatResponseLength, type ChatResponseLengthValue, type ChatStreamEvent, type ChatStreamOptions, type ClientOptions, ConnectOptions, type ConversationTurn, type CreateAudioOptions, type CreateDataTableOptions, type CreateInfographicOptions, type CreateQuizOptions, type CreateReportOptions, type CreateSlideDeckOptions, type CreateVideoOptions, type DataTableContent, DriveMimeType, type DriveMimeTypeValue, ExportType, type ExportTypeValue, type GenerationStatus, type ImportedSource, InfographicDetail, type InfographicDetailValue, InfographicOrientation, type InfographicOrientationValue, InfographicStyle, type InfographicStyleValue, type Note, type Notebook, type NotebookDescription, NotebookLMClient, type NotebookMetadata, NotebooksAPI, NotesAPI, type PollUntilReadyOptions, QuizDifficulty, type QuizDifficultyValue, QuizQuantity, type QuizQuantityValue, RPCMethod, type RPCMethodId, type ReportFormat, type ReportSuggestion, ResearchAPI, type ResearchResult, type ResearchSource, type ResearchTask, SettingsAPI, ShareAccess, type ShareAccessValue, SharePermission, type SharePermissionValue, type ShareStatus, ShareViewLevel, type ShareViewLevelValue, type SharedUser, SharingAPI, SlideDeckFormat, type SlideDeckFormatValue, SlideDeckLength, type SlideDeckLengthValue, type Source, type SourceFulltext, type SourceGuide, type SourceStatus, type SourceSummary, type SourceType, SourcesAPI, type SuggestedTopic, VideoFormat, type VideoFormatValue, VideoStyle, type VideoStyleValue };
+export { type AddSourceOptions, type Artifact, type ArtifactStatus, type ArtifactType, ArtifactTypeCode, ArtifactsAPI, type AskOptions, type AskResult, type AskStreamChunk, AudioFormat, type AudioFormatValue, AudioLength, type AudioLengthValue, AuthTokens, ChatAPI, ChatGoal, type ChatGoalValue, ChatMode, type ChatModeValue, type ChatReference, ChatResponseLength, type ChatResponseLengthValue, type ChatStreamEvent, type ChatStreamOptions, type ClientOptions, ConnectOptions, type ConversationTurn, type CreateAudioOptions, type CreateDataTableOptions, type CreateInfographicOptions, type CreateQuizOptions, type CreateReportOptions, type CreateSlideDeckOptions, type CreateVideoOptions, type DataTableContent, DriveMimeType, type DriveMimeTypeValue, ExportType, type ExportTypeValue, type GenerationStatus, type ImportedSource, InfographicDetail, type InfographicDetailValue, InfographicOrientation, type InfographicOrientationValue, InfographicStyle, type InfographicStyleValue, type Note, type Notebook, type NotebookDescription, NotebookLMClient, type NotebookMetadata, NotebooksAPI, NotesAPI, type PollUntilReadyOptions, QuizDifficulty, type QuizDifficultyValue, QuizQuantity, type QuizQuantityValue, RPCMethod, type RPCMethodId, type ReportFormat, type ReportSuggestion, ResearchAPI, type ResearchResult, type ResearchSource, type ResearchTask, SettingsAPI, ShareAccess, type ShareAccessValue, SharePermission, type SharePermissionValue, type ShareStatus, ShareViewLevel, type ShareViewLevelValue, type SharedUser, SharingAPI, SlideDeckFormat, type SlideDeckFormatValue, SlideDeckLength, type SlideDeckLengthValue, type Source, type SourceDownload, type SourceDownloadFormat, type SourceDownloadOptions, type SourceFulltext, type SourceGuide, type SourceStatus, type SourceSummary, type SourceType, SourcesAPI, type SuggestedTopic, VideoFormat, type VideoFormatValue, VideoStyle, type VideoStyleValue };

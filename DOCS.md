@@ -236,6 +236,29 @@ console.log(`${fulltext.charCount} chars indexed`);
 console.log(fulltext.content);
 ```
 
+### `client.sources.getDownload(notebookId, sourceId, opts?)`
+
+Builds a downloadable text/markdown file from the indexed source content. This is the text NotebookLM uses for chat and artifact generation; NotebookLM does not expose the original uploaded file for every source type.
+
+```ts
+const download = await client.sources.getDownload(notebookId, source.id);
+// { sourceId, title, fileName, mimeType, content, blob, url, charCount }
+```
+
+Browser click handler example:
+
+```ts
+button.onclick = async () => {
+  const download = await client.sources.getDownload(notebookId, source.id);
+  const url = URL.createObjectURL(download.blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = download.fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+```
+
 ### `client.sources.delete(notebookId, sourceId)`
 
 ```ts
@@ -504,6 +527,16 @@ const res = await client.chat.ask(notebookId, "What is this notebook about?");
 console.log(res.answer);
 console.log(res.references); // ChatReference[]
 console.log(res.conversationId);
+```
+
+**Download a cited source:**
+
+```ts
+const ref = res.references[0];
+if (ref) {
+  const download = await client.sources.getDownload(notebookId, ref.sourceId);
+  // Use download.blob in the browser, or write download.content in Node/Bun/Deno.
+}
 ```
 
 **Stream typing chunks:**
@@ -860,6 +893,7 @@ import type {
   AskResult,
   ChatReference,
   ConversationTurn,
+  SourceDownload,
 } from "notebooklm-sdk";
 ```
 
@@ -867,6 +901,7 @@ import type {
 |---|---|
 | `Notebook` | `{ id, title, createdAt, sourcesCount, isOwner }` |
 | `Source` | `{ id, title, url, kind, status, createdAt }` |
+| `SourceDownload` | `{ sourceId, title, fileName, mimeType, content, blob, url, charCount }` |
 | `Artifact` | `{ id, title, kind, status, notebookId, audioUrl, videoUrl, content }` |
 | `AskResult` | `{ answer, conversationId, turnNumber, references }` |
 | `ShareStatus` | `{ isPublic, access, viewLevel, sharedUsers, shareUrl }` |

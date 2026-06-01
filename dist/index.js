@@ -2478,6 +2478,31 @@ var SourcesAPI = class {
     }
     return { sourceId, title, content, url, charCount: content.length };
   }
+  /**
+   * Build a downloadable text/markdown file from the indexed source content.
+   * NotebookLM does not expose the original uploaded file for every source type,
+   * so this returns the text NotebookLM indexed for chat and artifact generation.
+   */
+  async getDownload(notebookId, sourceId, opts = {}) {
+    const fulltext = await this.getFulltext(notebookId, sourceId);
+    const format = opts.format ?? "markdown";
+    const includeMetadata = opts.includeMetadata ?? true;
+    const title = fulltext.title || sourceId;
+    const extension = format === "markdown" ? "md" : "txt";
+    const mimeType = format === "markdown" ? "text/markdown;charset=utf-8" : "text/plain;charset=utf-8";
+    const content = format === "markdown" ? formatMarkdownDownload(fulltext, includeMetadata) : formatTextDownload(fulltext, includeMetadata);
+    const fileName = opts.fileName ?? `${sanitizeFileName(title || sourceId)}.${extension}`;
+    return {
+      sourceId,
+      title,
+      fileName,
+      mimeType,
+      content,
+      blob: new Blob([content], { type: mimeType }),
+      url: fulltext.url,
+      charCount: content.length
+    };
+  }
   /** Check if a source has newer content available. Returns true if fresh, false if stale. */
   async checkFreshness(notebookId, sourceId) {
     const params = [null, [sourceId], [2]];
@@ -2593,6 +2618,24 @@ function extractAllText(data, maxDepth = 100) {
     else if (Array.isArray(item)) texts.push(...extractAllText(item, maxDepth - 1));
   }
   return texts;
+}
+function formatMarkdownDownload(source, includeMetadata) {
+  if (!includeMetadata) return source.content;
+  const lines = [`# ${source.title || source.sourceId}`, "", `Source ID: ${source.sourceId}`];
+  if (source.url) lines.push(`Original URL: ${source.url}`);
+  lines.push("", "---", "", source.content);
+  return lines.join("\n");
+}
+function formatTextDownload(source, includeMetadata) {
+  if (!includeMetadata) return source.content;
+  const lines = [source.title || source.sourceId, `Source ID: ${source.sourceId}`];
+  if (source.url) lines.push(`Original URL: ${source.url}`);
+  lines.push("", source.content);
+  return lines.join("\n");
+}
+function sanitizeFileName(name) {
+  const sanitized = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim().replace(/^\.+/, "").slice(0, 120);
+  return sanitized || "notebooklm-source";
 }
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

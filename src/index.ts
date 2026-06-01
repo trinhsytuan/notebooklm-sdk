@@ -28,7 +28,11 @@ export type {
 export { ResearchAPI } from "./api/research.js";
 export { SettingsAPI } from "./api/settings.js";
 export { SharingAPI } from "./api/sharing.js";
-export type { AddSourceOptions } from "./api/sources.js";
+export type {
+  AddSourceOptions,
+  SourceDownloadFormat,
+  SourceDownloadOptions,
+} from "./api/sources.js";
 export { SourcesAPI } from "./api/sources.js";
 export type { AuthTokens, ConnectOptions, CookieMap } from "./auth.js";
 // Auth
@@ -122,6 +126,7 @@ export type {
   SharedUser,
   ShareStatus,
   Source,
+  SourceDownload,
   SourceFulltext,
   SourceGuide,
   SourceStatus,

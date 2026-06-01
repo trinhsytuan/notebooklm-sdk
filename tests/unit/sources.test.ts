@@ -52,6 +52,19 @@ describe("SourcesAPI", () => {
     expect(src?.id).toBe(firstSourceId);
   });
 
+  it("getDownload() returns a downloadable markdown blob from indexed source text", async () => {
+    mockFetchWithFixture("sources_get_fulltext");
+
+    const result = await api.getDownload("nb-id", "a474cd35-6c21-4e72-94a0-c38b5491b449");
+
+    expect(result.sourceId).toBe("a474cd35-6c21-4e72-94a0-c38b5491b449");
+    expect(result.fileName).toMatch(/\.md$/);
+    expect(result.mimeType).toBe("text/markdown;charset=utf-8");
+    expect(result.content).toContain("# GitHub - shareAI-lab");
+    expect(result.content).toContain("Source ID: a474cd35-6c21-4e72-94a0-c38b5491b449");
+    expect(result.blob).toBeInstanceOf(Blob);
+  });
+
   it("addUrl() adds a URL source", async () => {
     mockFetchWithFixture("sources_add_url");
     const src = await api.addUrl("nb-id", "https://example.com");

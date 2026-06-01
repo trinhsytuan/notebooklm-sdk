@@ -4,7 +4,7 @@ import type { RPCCore } from "../rpc/core.js";
 import type { DriveMimeTypeValue } from "../types/enums.js";
 import { DriveMimeType, RPCMethod } from "../types/enums.js";
 import { SourceProcessingError, SourceTimeoutError } from "../types/errors.js";
-import type { Source, SourceFulltext, SourceGuide } from "../types/models.js";
+import type { Source, SourceDownload, SourceFulltext, SourceGuide } from "../types/models.js";
 import { parseSource } from "../types/models.js";
 
 const UPLOAD_URL = "https://notebooklm.google.com/upload/_/";
@@ -12,6 +12,17 @@ const UPLOAD_URL = "https://notebooklm.google.com/upload/_/";
 export interface AddSourceOptions {
   waitUntilReady?: boolean;
   waitTimeout?: number;
+}
+
+export type SourceDownloadFormat = "markdown" | "text";
+
+export interface SourceDownloadOptions {
+  /** Defaults to markdown so metadata can be preserved cleanly. */
+  format?: SourceDownloadFormat;
+  /** Override the generated download file name. */
+  fileName?: string;
+  /** Include title/source metadata at the top of the downloaded text. Defaults to true. */
+  includeMetadata?: boolean;
 }
 
 export class SourcesAPI {
@@ -338,6 +349,41 @@ export class SourcesAPI {
     return { sourceId, title, content, url, charCount: content.length };
   }
 
+  /**
+   * Build a downloadable text/markdown file from the indexed source content.
+   * NotebookLM does not expose the original uploaded file for every source type,
+   * so this returns the text NotebookLM indexed for chat and artifact generation.
+   */
+  async getDownload(
+    notebookId: string,
+    sourceId: string,
+    opts: SourceDownloadOptions = {},
+  ): Promise<SourceDownload> {
+    const fulltext = await this.getFulltext(notebookId, sourceId);
+    const format = opts.format ?? "markdown";
+    const includeMetadata = opts.includeMetadata ?? true;
+    const title = fulltext.title || sourceId;
+    const extension = format === "markdown" ? "md" : "txt";
+    const mimeType =
+      format === "markdown" ? "text/markdown;charset=utf-8" : "text/plain;charset=utf-8";
+    const content =
+      format === "markdown"
+        ? formatMarkdownDownload(fulltext, includeMetadata)
+        : formatTextDownload(fulltext, includeMetadata);
+    const fileName = opts.fileName ?? `${sanitizeFileName(title || sourceId)}.${extension}`;
+
+    return {
+      sourceId,
+      title,
+      fileName,
+      mimeType,
+      content,
+      blob: new Blob([content], { type: mimeType }),
+      url: fulltext.url,
+      charCount: content.length,
+    };
+  }
+
   /** Check if a source has newer content available. Returns true if fresh, false if stale. */
   async checkFreshness(notebookId: string, sourceId: string): Promise<boolean> {
     const params = [null, [sourceId], [2]];
@@ -486,6 +532,35 @@ function extractAllText(data: unknown[], maxDepth = 100): string[] {
     else if (Array.isArray(item)) texts.push(...extractAllText(item, maxDepth - 1));
   }
   return texts;
+}
+
+function formatMarkdownDownload(source: SourceFulltext, includeMetadata: boolean): string {
+  if (!includeMetadata) return source.content;
+
+  const lines = [`# ${source.title || source.sourceId}`, "", `Source ID: ${source.sourceId}`];
+  if (source.url) lines.push(`Original URL: ${source.url}`);
+  lines.push("", "---", "", source.content);
+  return lines.join("\n");
+}
+
+function formatTextDownload(source: SourceFulltext, includeMetadata: boolean): string {
+  if (!includeMetadata) return source.content;
+
+  const lines = [source.title || source.sourceId, `Source ID: ${source.sourceId}`];
+  if (source.url) lines.push(`Original URL: ${source.url}`);
+  lines.push("", source.content);
+  return lines.join("\n");
+}
+
+function sanitizeFileName(name: string): string {
+  const sanitized = name
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+/, "")
+    .slice(0, 120);
+
+  return sanitized || "notebooklm-source";
 }
 
 function sleep(ms: number): Promise<void> {

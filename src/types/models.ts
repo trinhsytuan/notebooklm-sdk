@@ -70,6 +70,17 @@ export interface SourceFulltext {
   charCount: number;
 }
 
+export interface SourceDownload {
+  sourceId: string;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  content: string;
+  blob: Blob;
+  url: string | null;
+  charCount: number;
+}
+
 export interface SourceSummaryData {
   sourceId: string;
   summary: string;
