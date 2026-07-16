@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   collectRPCIds,
   decodeResponse,
@@ -82,9 +82,12 @@ describe("extractRPCResult", () => {
   });
 
   it("returns null wrb.fr result as-is (without UserDisplayableError)", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const chunks = [[["wrb.fr", "abc", null]]];
     const result = extractRPCResult(chunks as unknown[][], "abc");
     expect(result).toBeNull();
+    expect(logSpy).not.toHaveBeenCalled();
+    logSpy.mockRestore();
   });
 });
 

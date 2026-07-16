@@ -2576,7 +2576,7 @@ var SourcesAPI = class {
     return false;
   }
   async delete(notebookId, sourceId) {
-    const params = [notebookId, [sourceId], [2]];
+    const params = [[[sourceId]], [2]];
     await this.rpc.call(RPCMethod.DELETE_SOURCE, params, {
       sourcePath: `/notebook/${notebookId}`,
       allowNull: true
@@ -2968,12 +2968,6 @@ function extractRPCResult(chunks, rpcId) {
           } catch {
             return resultData;
           }
-        }
-        if (resultData === null) {
-          console.log(
-            "decodeResponse debug info: resultData is exactly null. Full item Array:",
-            JSON.stringify(item)
-          );
         }
         return resultData;
       }

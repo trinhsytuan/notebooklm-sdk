@@ -109,6 +109,14 @@ describe("SourcesAPI", () => {
   it("delete() succeeds", async () => {
     mockFetchWithFixture("sources_delete");
     await expect(api.delete("nb-id", "src-id")).resolves.toBe(true);
+
+    const body = vi.mocked(fetch).mock.calls[0]?.[1]?.body;
+    expect(typeof body).toBe("string");
+    const fReq = new URLSearchParams(body as string).get("f.req");
+    expect(fReq).toBeTruthy();
+    const rpcRequest = JSON.parse(fReq as string);
+    expect(rpcRequest[0][0][0]).toBe("tGMBJ");
+    expect(JSON.parse(rpcRequest[0][0][1])).toEqual([[["src-id"]], [2]]);
   });
 
   it("refresh() completes successfully", async () => {

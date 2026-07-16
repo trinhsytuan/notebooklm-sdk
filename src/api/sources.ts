@@ -402,7 +402,7 @@ export class SourcesAPI {
   }
 
   async delete(notebookId: string, sourceId: string): Promise<boolean> {
-    const params = [notebookId, [sourceId], [2]];
+    const params = [[[sourceId]], [2]];
     await this.rpc.call(RPCMethod.DELETE_SOURCE, params, {
       sourcePath: `/notebook/${notebookId}`,
       allowNull: true,
