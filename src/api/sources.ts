@@ -498,30 +498,163 @@ export class SourcesAPI {
   }
 }
 
-function extractSourceId(result: unknown): string {
-  // Source ID appears in various positions depending on the RPC
-  if (Array.isArray(result)) {
-    // Navigate down the first elements to find the deeply nested ID
-    // e.g., [[[[["id"], ...]]]], [[["id", title]]]
-    let current: unknown = result;
-    while (Array.isArray(current) && current.length > 0) {
-      if (typeof current[0] === "string") {
-        // Only return if it's a UUID-like string or long enough
-        if (current[0].length > 8) {
-          return current[0];
-        }
-      }
-      current = current[0];
-    }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ID_LIKE_RE = /^[A-Za-z0-9_-]{9,128}$/;
+const SOURCE_ID_KEYS = ["sourceId", "source_id", "SOURCE_ID", "id"] as const;
+// biome-ignore lint/complexity/useRegexLiterals: The literal form trips noControlCharactersInRegex.
+const FILE_NAME_CONTROL_CHARS_RE = new RegExp("[\\u0000-\\u001f]", "g");
 
-    // Fallback flat search
-    for (const item of result) {
-      if (typeof item === "string" && item.length > 8) return item;
+function extractSourceId(result: unknown): string {
+  // Source ID appears in various positions depending on the RPC.
+  const sourceTupleId = findSourceTupleId(result);
+  if (sourceTupleId) return sourceTupleId;
+
+  const keyedId = findKeyedSourceId(result);
+  if (keyedId) return keyedId;
+
+  const uuid = findString(result, isUuid);
+  if (uuid) return uuid;
+
+  const idLike = findString(result, isIdLike);
+  if (idLike) return idLike;
+
+  throw new Error("Could not extract source ID from API response");
+}
+
+function findSourceTupleId(value: unknown, depth = 0, seen = new Set<object>()): string | null {
+  if (depth > 40) return null;
+
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+
+    const id = sourceTupleId(value);
+    if (id) return id;
+
+    for (const item of value) {
+      const nested = findSourceTupleId(item, depth + 1, seen);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  if (isRecord(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+
+    for (const item of Object.values(value)) {
+      const nested = findSourceTupleId(item, depth + 1, seen);
+      if (nested) return nested;
     }
   }
-  if (typeof result === "string") return result;
-  console.log("extractSourceId debug info: could not parse:", JSON.stringify(result, null, 2));
-  throw new Error("Could not extract source ID from API response");
+
+  return null;
+}
+
+function sourceTupleId(value: unknown[]): string | null {
+  const id = unwrapSourceId(value[0]);
+  if (!id) return null;
+
+  if (value.length === 1) return id;
+  if (typeof value[1] === "string") return id;
+  if (isUuid(id) && (Array.isArray(value[2]) || Array.isArray(value[3]))) return id;
+
+  return null;
+}
+
+function unwrapSourceId(value: unknown): string | null {
+  if (typeof value === "string") return normalizeSourceId(value);
+  if (Array.isArray(value) && value.length > 0) return unwrapSourceId(value[0]);
+  return null;
+}
+
+function findKeyedSourceId(value: unknown, depth = 0, seen = new Set<object>()): string | null {
+  if (depth > 40 || !isRecord(value)) return null;
+  if (seen.has(value)) return null;
+  seen.add(value);
+
+  for (const key of SOURCE_ID_KEYS) {
+    const id = normalizeSourceId(value[key]);
+    if (id) return id;
+  }
+
+  for (const item of Object.values(value)) {
+    const nested = findKeyedSourceId(item, depth + 1, seen);
+    if (nested) return nested;
+  }
+
+  return null;
+}
+
+function findString(
+  value: unknown,
+  predicate: (value: string) => boolean,
+  depth = 0,
+  seen = new Set<object>(),
+): string | null {
+  if (depth > 40) return null;
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (predicate(normalized)) return normalized;
+
+    const parsed = parseNestedJson(normalized);
+    if (parsed !== null) return findString(parsed, predicate, depth + 1, seen);
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+
+    for (const item of value) {
+      const nested = findString(item, predicate, depth + 1, seen);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  if (isRecord(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+
+    for (const item of Object.values(value)) {
+      const nested = findString(item, predicate, depth + 1, seen);
+      if (nested) return nested;
+    }
+  }
+
+  return null;
+}
+
+function normalizeSourceId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (isUuid(trimmed) || isIdLike(trimmed)) return trimmed;
+  return null;
+}
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+function isIdLike(value: string): boolean {
+  return ID_LIKE_RE.test(value);
+}
+
+function parseNestedJson(value: string): unknown | null {
+  if (!value || (value[0] !== "[" && value[0] !== "{")) return null;
+  if (value.length > 50_000) return null;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function extractAllText(data: unknown[], maxDepth = 100): string[] {
@@ -554,7 +687,8 @@ function formatTextDownload(source: SourceFulltext, includeMetadata: boolean): s
 
 function sanitizeFileName(name: string): string {
   const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/[<>:"/\\|?*]/g, "-")
+    .replace(FILE_NAME_CONTROL_CHARS_RE, "-")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^\.+/, "")

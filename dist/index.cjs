@@ -605,9 +605,6 @@ var ArtifactsAPI = class {
     this.auth = auth;
     this.notes = notes;
   }
-  rpc;
-  auth;
-  notes;
   async list(notebookId) {
     const rawList = await this._listRaw(notebookId);
     const artifacts = [];
@@ -1257,9 +1254,6 @@ var ChatAPI = class {
     this.auth = auth;
     this.refreshAuth = refreshAuth;
   }
-  rpc;
-  auth;
-  refreshAuth;
   conversationCache = /* @__PURE__ */ new Map();
   reqid = Math.floor(Math.random() * 9e5) + 1e5;
   async ask(notebookId, query, opts = {}) {
@@ -1735,7 +1729,6 @@ var NotebooksAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   async list() {
     const params = [null, 1, null, [2]];
     const result = await this.rpc.call(exports.RPCMethod.LIST_NOTEBOOKS, params);
@@ -1862,7 +1855,6 @@ var NotesAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   async list(notebookId) {
     const all = await this._fetchAll(notebookId);
     return all.filter((n) => !this._isMindMap(n.content));
@@ -1942,7 +1934,6 @@ var ResearchAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   /**
    * Start a research session.
    * @param source "web" or "drive"
@@ -2129,7 +2120,6 @@ var SettingsAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   /** Get the current output language setting (e.g. "en", "ja", "zh_Hans"). */
   async getOutputLanguage() {
     const params = [null, [1, null, null, null, null, null, null, null, null, null, [1]]];
@@ -2173,7 +2163,6 @@ var SharingAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   /** Get current sharing configuration for a notebook. */
   async getStatus(notebookId) {
     const params = [notebookId, [2]];
@@ -2290,8 +2279,6 @@ var SourcesAPI = class {
     this.rpc = rpc;
     this.auth = auth;
   }
-  rpc;
-  auth;
   async list(notebookId) {
     const params = [notebookId, null, [2], null, 0];
     const notebook = await this.rpc.call(exports.RPCMethod.GET_NOTEBOOK, params, {
@@ -2649,24 +2636,122 @@ var SourcesAPI = class {
     );
   }
 };
+var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var ID_LIKE_RE = /^[A-Za-z0-9_-]{9,128}$/;
+var SOURCE_ID_KEYS = ["sourceId", "source_id", "SOURCE_ID", "id"];
+var FILE_NAME_CONTROL_CHARS_RE = new RegExp("[\\u0000-\\u001f]", "g");
 function extractSourceId(result) {
-  if (Array.isArray(result)) {
-    let current = result;
-    while (Array.isArray(current) && current.length > 0) {
-      if (typeof current[0] === "string") {
-        if (current[0].length > 8) {
-          return current[0];
-        }
-      }
-      current = current[0];
+  const sourceTupleId2 = findSourceTupleId(result);
+  if (sourceTupleId2) return sourceTupleId2;
+  const keyedId = findKeyedSourceId(result);
+  if (keyedId) return keyedId;
+  const uuid = findString(result, isUuid);
+  if (uuid) return uuid;
+  const idLike = findString(result, isIdLike);
+  if (idLike) return idLike;
+  throw new Error("Could not extract source ID from API response");
+}
+function findSourceTupleId(value, depth = 0, seen = /* @__PURE__ */ new Set()) {
+  if (depth > 40) return null;
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+    const id = sourceTupleId(value);
+    if (id) return id;
+    for (const item of value) {
+      const nested = findSourceTupleId(item, depth + 1, seen);
+      if (nested) return nested;
     }
-    for (const item of result) {
-      if (typeof item === "string" && item.length > 8) return item;
+    return null;
+  }
+  if (isRecord(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+    for (const item of Object.values(value)) {
+      const nested = findSourceTupleId(item, depth + 1, seen);
+      if (nested) return nested;
     }
   }
-  if (typeof result === "string") return result;
-  console.log("extractSourceId debug info: could not parse:", JSON.stringify(result, null, 2));
-  throw new Error("Could not extract source ID from API response");
+  return null;
+}
+function sourceTupleId(value) {
+  const id = unwrapSourceId(value[0]);
+  if (!id) return null;
+  if (value.length === 1) return id;
+  if (typeof value[1] === "string") return id;
+  if (isUuid(id) && (Array.isArray(value[2]) || Array.isArray(value[3]))) return id;
+  return null;
+}
+function unwrapSourceId(value) {
+  if (typeof value === "string") return normalizeSourceId(value);
+  if (Array.isArray(value) && value.length > 0) return unwrapSourceId(value[0]);
+  return null;
+}
+function findKeyedSourceId(value, depth = 0, seen = /* @__PURE__ */ new Set()) {
+  if (depth > 40 || !isRecord(value)) return null;
+  if (seen.has(value)) return null;
+  seen.add(value);
+  for (const key of SOURCE_ID_KEYS) {
+    const id = normalizeSourceId(value[key]);
+    if (id) return id;
+  }
+  for (const item of Object.values(value)) {
+    const nested = findKeyedSourceId(item, depth + 1, seen);
+    if (nested) return nested;
+  }
+  return null;
+}
+function findString(value, predicate, depth = 0, seen = /* @__PURE__ */ new Set()) {
+  if (depth > 40) return null;
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (predicate(normalized)) return normalized;
+    const parsed = parseNestedJson(normalized);
+    if (parsed !== null) return findString(parsed, predicate, depth + 1, seen);
+    return null;
+  }
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+    for (const item of value) {
+      const nested = findString(item, predicate, depth + 1, seen);
+      if (nested) return nested;
+    }
+    return null;
+  }
+  if (isRecord(value)) {
+    if (seen.has(value)) return null;
+    seen.add(value);
+    for (const item of Object.values(value)) {
+      const nested = findString(item, predicate, depth + 1, seen);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+function normalizeSourceId(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (isUuid(trimmed) || isIdLike(trimmed)) return trimmed;
+  return null;
+}
+function isUuid(value) {
+  return UUID_RE2.test(value);
+}
+function isIdLike(value) {
+  return ID_LIKE_RE.test(value);
+}
+function parseNestedJson(value) {
+  if (!value || value[0] !== "[" && value[0] !== "{") return null;
+  if (value.length > 5e4) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function extractAllText(data, maxDepth = 100) {
   if (maxDepth <= 0) return [];
@@ -2692,7 +2777,7 @@ function formatTextDownload(source, includeMetadata) {
   return lines.join("\n");
 }
 function sanitizeFileName(name) {
-  const sanitized = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim().replace(/^\.+/, "").slice(0, 120);
+  const sanitized = name.replace(/[<>:"/\\|?*]/g, "-").replace(FILE_NAME_CONTROL_CHARS_RE, "-").replace(/\s+/g, " ").trim().replace(/^\.+/, "").slice(0, 120);
   return sanitized || "notebooklm-source";
 }
 function sleep2(ms) {
@@ -3158,7 +3243,6 @@ var NotebookLMClient = class _NotebookLMClient {
     this.settings = new SettingsAPI(rpc);
     this.sharing = new SharingAPI(rpc);
   }
-  auth;
   notebooks;
   sources;
   artifacts;

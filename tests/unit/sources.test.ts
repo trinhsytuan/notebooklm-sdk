@@ -1,5 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SourcesAPI } from "../../src/api/sources.js";
 import { RPCCore } from "../../src/rpc/core.js";
@@ -11,15 +11,19 @@ function getFixture(filename: string): string {
 describe("SourcesAPI", () => {
   let api: SourcesAPI;
 
-  beforeEach(() => {
-    globalThis.fetch = vi.fn();
-    const auth = {
+  function createAuth() {
+    return {
       sessionId: "mock-session",
       csrfToken: "mock-csrf",
       cookieHeader: "mock-cookie",
       googleCookieHeader: "mock-cookie",
       cookies: {},
     };
+  }
+
+  beforeEach(() => {
+    globalThis.fetch = vi.fn();
+    const auth = createAuth();
     const realCore = new RPCCore(auth);
     api = new SourcesAPI(realCore, auth);
   });
@@ -75,6 +79,49 @@ describe("SourcesAPI", () => {
     mockFetchWithFixture("sources_add_text");
     const src = await api.addText("nb-id", "Some test content", "My text source");
     expect(src).toHaveProperty("id");
+  });
+
+  it("addDrive() extracts the source id instead of the Drive file id", async () => {
+    mockFetchWithFixture("sources_add_drive");
+
+    const src = await api.addDrive("nb-id", "drive-file-id", "Rubisco Research: Status and Future");
+
+    expect(src.id).toBe("ef72c03c-b429-41cb-ae79-8529d35d6d5b");
+  });
+
+  it("addText() extracts source id from nested non-leading response branches", async () => {
+    const rpc = {
+      call: vi
+        .fn()
+        .mockResolvedValue([
+          [["queued", ["metadata"]]],
+          [
+            null,
+            [[["d9b49366-31d4-49f6-bc1a-d719cbb5b24e"], "Recovered source", [null, 10], [null, 1]]],
+          ],
+        ]),
+    } as unknown as RPCCore;
+    const nestedApi = new SourcesAPI(rpc, createAuth());
+
+    const src = await nestedApi.addText("nb-id", "Some test content", "My text source");
+
+    expect(src.id).toBe("d9b49366-31d4-49f6-bc1a-d719cbb5b24e");
+  });
+
+  it("addUrl() extracts source id from object-shaped responses", async () => {
+    const rpc = {
+      call: vi.fn().mockResolvedValue({
+        operation: "queued",
+        source: {
+          sourceId: "62fa6b1a-d872-41f0-a052-52bd1b7cb399",
+        },
+      }),
+    } as unknown as RPCCore;
+    const objectApi = new SourcesAPI(rpc, createAuth());
+
+    const src = await objectApi.addUrl("nb-id", "https://example.com");
+
+    expect(src.id).toBe("62fa6b1a-d872-41f0-a052-52bd1b7cb399");
   });
 
   it("addFile() uploads a file", async () => {
