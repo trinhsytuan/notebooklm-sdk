@@ -12,7 +12,7 @@ import {
 import { decodeResponse } from "./decoder.js";
 import { buildRequestBody, buildUrlParams, encodeRPCRequest } from "./encoder.js";
 
-const BATCHEXECUTE_URL = "https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute";
+const BATCHEXECUTE_URL = "https://notebook.google.com/_/LabsTailwindUi/data/batchexecute";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 

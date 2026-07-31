@@ -183,7 +183,7 @@ https://github.com/user-attachments/assets/1d5fce2a-123c-4a3d-b9c5-a56ef3bc4423
 ## Requirements
 
 - Node.js 18+ or Bun 1.0+
-- A Google account with access to [NotebookLM](https://notebooklm.google.com)
+- A Google account with access to [NotebookLM](https://notebook.google.com)
 
 ## Related
 

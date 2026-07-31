@@ -1,5 +1,5 @@
-import { A as AuthTokens, a as ConnectOptions } from './auth-BlG6x47F.js';
-export { C as CookieMap, d as connect } from './auth-BlG6x47F.js';
+import { A as AuthTokens, C as ConnectOptions } from './auth-VG-Wp7XL.js';
+export { a as CookieMap, d as connect } from './auth-VG-Wp7XL.js';
 export { ArtifactDownloadError, ArtifactError, ArtifactNotFoundError, ArtifactNotReadyError, ArtifactParseError, AuthError, ChatError, ClientError, NetworkError, NotebookError, NotebookLMError, NotebookNotFoundError, RPCError, RPCTimeoutError, RateLimitError, ServerError, SourceAddError, SourceError, SourceNotFoundError, SourceProcessingError, SourceTimeoutError } from './errors.js';
 
 /** RPC method IDs for NotebookLM batchexecute API. */

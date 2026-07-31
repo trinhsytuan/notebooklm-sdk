@@ -87,7 +87,7 @@ function extractCookiesFromStorageState(storageState) {
   return cookies;
 }
 function isAllowedDomain(domain) {
-  if (domain === ".google.com" || domain === "notebooklm.google.com" || domain === ".googleusercontent.com") {
+  if (domain === ".google.com" || domain === "notebook.google.com" || domain === ".googleusercontent.com") {
     return true;
   }
   if (domain.startsWith(".google.")) {
@@ -98,7 +98,7 @@ function isAllowedDomain(domain) {
 function buildCookieHeader(cookies) {
   return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join("; ");
 }
-var NOTEBOOKLM_URL = "https://notebooklm.google.com/";
+var NOTEBOOKLM_URL = "https://notebook.google.com/";
 async function fetchTokens(cookies) {
   const cookieHeader = buildCookieHeader(cookies);
   const response = await fetch(NOTEBOOKLM_URL, {
@@ -194,7 +194,7 @@ async function connect(opts = {}) {
 }
 var DEFAULT_SESSION_DIR = path.join(os.homedir(), ".notebooklm");
 var DEFAULT_SESSION_FILE2 = path.join(DEFAULT_SESSION_DIR, "session.json");
-var NOTEBOOKLM_URL2 = "https://notebooklm.google.com/";
+var NOTEBOOKLM_URL2 = "https://notebook.google.com/";
 var GOOGLE_ACCOUNTS_URL = "https://accounts.google.com/";
 async function login(opts = {}) {
   const {
@@ -225,7 +225,7 @@ async function login(opts = {}) {
     console.log("Please log in to Google in the browser window...");
     await page.waitForURL(
       (url) => {
-        return url.hostname === "notebooklm.google.com" && !url.pathname.includes("/login");
+        return url.hostname === "notebook.google.com" && !url.pathname.includes("/login");
       },
       { timeout: 0 }
     );

@@ -101,7 +101,7 @@ function extractCookiesFromStorageState(storageState: {
 function isAllowedDomain(domain: string): boolean {
   if (
     domain === ".google.com" ||
-    domain === "notebooklm.google.com" ||
+    domain === "notebook.google.com" ||
     domain === ".googleusercontent.com"
   ) {
     return true;
@@ -122,7 +122,7 @@ export function buildCookieHeader(cookies: CookieMap): string {
 // Token fetching
 // ---------------------------------------------------------------------------
 
-const NOTEBOOKLM_URL = "https://notebooklm.google.com/";
+const NOTEBOOKLM_URL = "https://notebook.google.com/";
 
 export async function fetchTokens(
   cookies: CookieMap,

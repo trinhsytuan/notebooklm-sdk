@@ -605,6 +605,9 @@ var ArtifactsAPI = class {
     this.auth = auth;
     this.notes = notes;
   }
+  rpc;
+  auth;
+  notes;
   async list(notebookId) {
     const rawList = await this._listRaw(notebookId);
     const artifacts = [];
@@ -1245,7 +1248,7 @@ function isTrustedDomain(url) {
 
 // src/api/chat.ts
 init_enums();
-var QUERY_URL = "https://notebooklm.google.com/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
+var QUERY_URL = "https://notebook.google.com/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
 var DEFAULT_BL = "boq_labs-tailwind-frontend_20260301.03_p0";
 var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ChatAPI = class {
@@ -1254,6 +1257,9 @@ var ChatAPI = class {
     this.auth = auth;
     this.refreshAuth = refreshAuth;
   }
+  rpc;
+  auth;
+  refreshAuth;
   conversationCache = /* @__PURE__ */ new Map();
   reqid = Math.floor(Math.random() * 9e5) + 1e5;
   async ask(notebookId, query, opts = {}) {
@@ -1729,6 +1735,7 @@ var NotebooksAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
+  rpc;
   async list() {
     const params = [null, 1, null, [2]];
     const result = await this.rpc.call(exports.RPCMethod.LIST_NOTEBOOKS, params);
@@ -1826,7 +1833,7 @@ var NotebooksAPI = class {
     };
   }
   getShareUrl(notebookId, artifactId) {
-    const baseUrl = `https://notebooklm.google.com/notebook/${notebookId}`;
+    const baseUrl = `https://notebook.google.com/notebook/${notebookId}`;
     return artifactId ? `${baseUrl}?artifactId=${artifactId}` : baseUrl;
   }
   async getMetadata(notebookId) {
@@ -1855,6 +1862,7 @@ var NotesAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
+  rpc;
   async list(notebookId) {
     const all = await this._fetchAll(notebookId);
     return all.filter((n) => !this._isMindMap(n.content));
@@ -1934,6 +1942,7 @@ var ResearchAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
+  rpc;
   /**
    * Start a research session.
    * @param source "web" or "drive"
@@ -2120,6 +2129,7 @@ var SettingsAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
+  rpc;
   /** Get the current output language setting (e.g. "en", "ja", "zh_Hans"). */
   async getOutputLanguage() {
     const params = [null, [1, null, null, null, null, null, null, null, null, null, [1]]];
@@ -2163,6 +2173,7 @@ var SharingAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
+  rpc;
   /** Get current sharing configuration for a notebook. */
   async getStatus(notebookId) {
     const params = [notebookId, [2]];
@@ -2260,7 +2271,7 @@ function parseShareStatus(data, notebookId) {
   }
   const isPublic = Array.isArray(data[1]) && data[1][0] === true;
   const access = isPublic ? exports.ShareAccess.ANYONE_WITH_LINK : exports.ShareAccess.RESTRICTED;
-  const shareUrl = isPublic ? `https://notebooklm.google.com/notebook/${notebookId}` : null;
+  const shareUrl = isPublic ? `https://notebook.google.com/notebook/${notebookId}` : null;
   return {
     notebookId,
     isPublic,
@@ -2273,12 +2284,14 @@ function parseShareStatus(data, notebookId) {
 
 // src/api/sources.ts
 init_enums();
-var UPLOAD_URL = "https://notebooklm.google.com/upload/_/";
+var UPLOAD_URL = "https://notebook.google.com/upload/_/";
 var SourcesAPI = class {
   constructor(rpc, auth) {
     this.rpc = rpc;
     this.auth = auth;
   }
+  rpc;
+  auth;
   async list(notebookId) {
     const params = [notebookId, null, [2], null, 0];
     const notebook = await this.rpc.call(exports.RPCMethod.GET_NOTEBOOK, params, {
@@ -2429,8 +2442,8 @@ var SourcesAPI = class {
         Accept: "*/*",
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         Cookie: this.auth.cookieHeader,
-        Origin: "https://notebooklm.google.com",
-        Referer: "https://notebooklm.google.com/",
+        Origin: "https://notebook.google.com",
+        Referer: "https://notebook.google.com/",
         "x-goog-authuser": "0",
         "x-goog-upload-command": "start",
         "x-goog-upload-header-content-length": String(fileSize),
@@ -2458,8 +2471,8 @@ var SourcesAPI = class {
         Accept: "*/*",
         "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
         Cookie: this.auth.cookieHeader,
-        Origin: "https://notebooklm.google.com",
-        Referer: "https://notebooklm.google.com/",
+        Origin: "https://notebook.google.com",
+        Referer: "https://notebook.google.com/",
         "X-Goog-Upload-Command": "upload, finalize",
         "X-Goog-Upload-Offset": "0"
       },
@@ -2839,7 +2852,7 @@ function extractCookiesFromStorageState(storageState) {
   return cookies;
 }
 function isAllowedDomain(domain) {
-  if (domain === ".google.com" || domain === "notebooklm.google.com" || domain === ".googleusercontent.com") {
+  if (domain === ".google.com" || domain === "notebook.google.com" || domain === ".googleusercontent.com") {
     return true;
   }
   if (domain.startsWith(".google.")) {
@@ -2850,7 +2863,7 @@ function isAllowedDomain(domain) {
 function buildCookieHeader(cookies) {
   return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join("; ");
 }
-var NOTEBOOKLM_URL = "https://notebooklm.google.com/";
+var NOTEBOOKLM_URL = "https://notebook.google.com/";
 async function fetchTokens(cookies) {
   const cookieHeader = buildCookieHeader(cookies);
   const response = await fetch(NOTEBOOKLM_URL, {
@@ -3118,7 +3131,7 @@ function buildUrlParams(methodId, sessionId, sourcePath = "/") {
 }
 
 // src/rpc/core.ts
-var BATCHEXECUTE_URL = "https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute";
+var BATCHEXECUTE_URL = "https://notebook.google.com/_/LabsTailwindUi/data/batchexecute";
 var DEFAULT_TIMEOUT_MS = 3e4;
 var RPCCore = class {
   auth;
@@ -3243,6 +3256,7 @@ var NotebookLMClient = class _NotebookLMClient {
     this.settings = new SettingsAPI(rpc);
     this.sharing = new SharingAPI(rpc);
   }
+  auth;
   notebooks;
   sources;
   artifacts;
