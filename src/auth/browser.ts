@@ -84,7 +84,10 @@ export async function login(opts: LoginOptions = {}): Promise<{
     // We poll until the URL includes notebook.google.com and it's not a generic landing page
     await page.waitForURL(
       (url) => {
-        return url.hostname === "notebook.google.com" && !url.pathname.includes("/login");
+        return (
+          (url.hostname === "notebook.google.com" || url.hostname === "notebooklm.google.com") &&
+          !url.pathname.includes("/login")
+        );
       },
       { timeout: 0 },
     ); // No timeout, wait for user

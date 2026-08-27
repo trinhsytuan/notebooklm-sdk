@@ -68,13 +68,17 @@ function loadCookiesFromString(cookieStr) {
   return map;
 }
 function extractCookiesFromStorageState(storageState) {
+  const host = "notebook.google.com";
   const cookies = {};
   for (const cookie of storageState.cookies ?? []) {
     const { domain, name, value } = cookie;
-    if (!isAllowedDomain(domain) || !name) continue;
-    const isBase = domain === ".google.com";
-    if (!(name in cookies) || isBase) {
-      cookies[name] = value;
+    if (!name || !value || !domain) continue;
+    const cleanDomain = domain.startsWith(".") ? domain.slice(1) : domain;
+    const matchesHost = host === cleanDomain || cleanDomain.startsWith("google.") && host.endsWith("." + cleanDomain) || cleanDomain.includes(".google.") && host.endsWith("." + cleanDomain) || cleanDomain === "google.com" && host.endsWith("." + cleanDomain);
+    if (matchesHost) {
+      if (!(name in cookies) || cleanDomain === host) {
+        cookies[name] = value;
+      }
     }
   }
   if (!cookies["SID"]) {
@@ -84,15 +88,6 @@ function extractCookiesFromStorageState(storageState) {
   }
   return cookies;
 }
-function isAllowedDomain(domain) {
-  if (domain === ".google.com" || domain === "notebook.google.com" || domain === ".googleusercontent.com") {
-    return true;
-  }
-  if (domain.startsWith(".google.")) {
-    return true;
-  }
-  return false;
-}
 function buildCookieHeader(cookies) {
   return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join("; ");
 }
@@ -100,7 +95,10 @@ var NOTEBOOKLM_URL = "https://notebook.google.com/";
 async function fetchTokens(cookies) {
   const cookieHeader = buildCookieHeader(cookies);
   const response = await fetch(NOTEBOOKLM_URL, {
-    headers: { Cookie: cookieHeader },
+    headers: {
+      Cookie: cookieHeader,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    },
     redirect: "follow"
   });
   if (!response.ok) {
@@ -223,7 +221,7 @@ async function login(opts = {}) {
     console.log("Please log in to Google in the browser window...");
     await page.waitForURL(
       (url) => {
-        return url.hostname === "notebook.google.com" && !url.pathname.includes("/login");
+        return (url.hostname === "notebook.google.com" || url.hostname === "notebooklm.google.com") && !url.pathname.includes("/login");
       },
       { timeout: 0 }
     );
