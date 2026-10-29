@@ -28,6 +28,34 @@ export interface LoginOptions {
 
 const NOTEBOOKLM_URL = "https://notebook.google.com/";
 const GOOGLE_ACCOUNTS_URL = "https://accounts.google.com/";
+const LOGIN_URL = `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(NOTEBOOKLM_URL)}`;
+
+async function hasAuthCookie(context: BrowserContext): Promise<boolean> {
+  const cookies = await context.cookies(["https://notebook.google.com", "https://accounts.google.com"]);
+  return cookies.some((c) => c.name === "SID" && c.value);
+}
+
+/** Wait (no timeout) until the user has signed in and is back on NotebookLM. */
+async function waitForLogin(context: BrowserContext, page: Page): Promise<void> {
+  let closed = false;
+  context.on("close", () => {
+    closed = true;
+  });
+
+  while (true) {
+    if (closed || page.isClosed()) {
+      throw new Error("Browser was closed before login completed.");
+    }
+    const host = new URL(page.url()).hostname;
+    if (
+      (host === "notebook.google.com" || host === "notebooklm.google.com") &&
+      (await hasAuthCookie(context))
+    ) {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
 
 /**
  * Log in to NotebookLM via a headful browser window.
@@ -76,21 +104,12 @@ export async function login(opts: LoginOptions = {}): Promise<{
   const page = context.pages()[0] || (await context.newPage());
   await page.goto(NOTEBOOKLM_URL);
 
-  // Check if we are on the login page
-  if (page.url().includes("accounts.google.com")) {
+  // Unauthenticated visits to notebook.google.com land on a marketing page (HTTP 200)
+  // instead of redirecting to accounts.google.com, so detect login state via the SID cookie.
+  if (!(await hasAuthCookie(context))) {
     console.log("Please log in to Google in the browser window...");
-
-    // Wait for navigation back to NotebookLM or successful login indicator
-    // We poll until the URL includes notebook.google.com and it's not a generic landing page
-    await page.waitForURL(
-      (url) => {
-        return (
-          (url.hostname === "notebook.google.com" || url.hostname === "notebooklm.google.com") &&
-          !url.pathname.includes("/login")
-        );
-      },
-      { timeout: 0 },
-    ); // No timeout, wait for user
+    await page.goto(LOGIN_URL);
+    await waitForLogin(context, page);
   }
 
   // Ensure we are fully loaded on the accounts domain too to capture those cookies

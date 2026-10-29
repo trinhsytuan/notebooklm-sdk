@@ -605,9 +605,6 @@ var ArtifactsAPI = class {
     this.auth = auth;
     this.notes = notes;
   }
-  rpc;
-  auth;
-  notes;
   async list(notebookId) {
     const rawList = await this._listRaw(notebookId);
     const artifacts = [];
@@ -1257,9 +1254,6 @@ var ChatAPI = class {
     this.auth = auth;
     this.refreshAuth = refreshAuth;
   }
-  rpc;
-  auth;
-  refreshAuth;
   conversationCache = /* @__PURE__ */ new Map();
   reqid = Math.floor(Math.random() * 9e5) + 1e5;
   async ask(notebookId, query, opts = {}) {
@@ -1735,7 +1729,6 @@ var NotebooksAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   async list() {
     const params = [null, 1, null, [2]];
     const result = await this.rpc.call(exports.RPCMethod.LIST_NOTEBOOKS, params);
@@ -1862,7 +1855,6 @@ var NotesAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   async list(notebookId) {
     const all = await this._fetchAll(notebookId);
     return all.filter((n) => !this._isMindMap(n.content));
@@ -1942,7 +1934,6 @@ var ResearchAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   /**
    * Start a research session.
    * @param source "web" or "drive"
@@ -2129,7 +2120,6 @@ var SettingsAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   /** Get the current output language setting (e.g. "en", "ja", "zh_Hans"). */
   async getOutputLanguage() {
     const params = [null, [1, null, null, null, null, null, null, null, null, null, [1]]];
@@ -2173,7 +2163,6 @@ var SharingAPI = class {
   constructor(rpc) {
     this.rpc = rpc;
   }
-  rpc;
   /** Get current sharing configuration for a notebook. */
   async getStatus(notebookId) {
     const params = [notebookId, [2]];
@@ -2290,8 +2279,6 @@ var SourcesAPI = class {
     this.rpc = rpc;
     this.auth = auth;
   }
-  rpc;
-  auth;
   async list(notebookId) {
     const params = [notebookId, null, [2], null, 0];
     const notebook = await this.rpc.call(exports.RPCMethod.GET_NOTEBOOK, params, {
@@ -3255,7 +3242,6 @@ var NotebookLMClient = class _NotebookLMClient {
     this.settings = new SettingsAPI(rpc);
     this.sharing = new SharingAPI(rpc);
   }
-  auth;
   notebooks;
   sources;
   artifacts;

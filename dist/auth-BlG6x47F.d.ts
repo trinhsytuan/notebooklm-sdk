@@ -53,4 +53,4 @@ interface ConnectOptions {
 }
 declare function connect(opts?: ConnectOptions): Promise<AuthTokens>;
 
-export { type AuthTokens as A, type ConnectOptions as C, type CookieMap as a, buildCookieHeader as b, buildGoogleCookieHeader as c, connect as d, loadCookiesFromMap as e, fetchTokens as f, loadCookiesFromObject as g, loadCookiesFromString as h, loadCookiesFromFile as l, refreshAuthTokens as r };
+export { type AuthTokens as A, type CookieMap as C, type ConnectOptions as a, buildCookieHeader as b, buildGoogleCookieHeader as c, connect as d, loadCookiesFromMap as e, fetchTokens as f, loadCookiesFromObject as g, loadCookiesFromString as h, loadCookiesFromFile as l, refreshAuthTokens as r };

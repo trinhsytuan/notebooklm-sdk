@@ -192,6 +192,27 @@ var DEFAULT_SESSION_DIR = join(homedir(), ".notebooklm");
 var DEFAULT_SESSION_FILE2 = join(DEFAULT_SESSION_DIR, "session.json");
 var NOTEBOOKLM_URL2 = "https://notebook.google.com/";
 var GOOGLE_ACCOUNTS_URL = "https://accounts.google.com/";
+var LOGIN_URL = `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(NOTEBOOKLM_URL2)}`;
+async function hasAuthCookie(context) {
+  const cookies = await context.cookies(["https://notebook.google.com", "https://accounts.google.com"]);
+  return cookies.some((c) => c.name === "SID" && c.value);
+}
+async function waitForLogin(context, page) {
+  let closed = false;
+  context.on("close", () => {
+    closed = true;
+  });
+  while (true) {
+    if (closed || page.isClosed()) {
+      throw new Error("Browser was closed before login completed.");
+    }
+    const host = new URL(page.url()).hostname;
+    if ((host === "notebook.google.com" || host === "notebooklm.google.com") && await hasAuthCookie(context)) {
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 1e3));
+  }
+}
 async function login(opts = {}) {
   const {
     persistFolder = join(DEFAULT_SESSION_DIR, ".auth_profile"),
@@ -217,14 +238,10 @@ async function login(opts = {}) {
   });
   const page = context.pages()[0] || await context.newPage();
   await page.goto(NOTEBOOKLM_URL2);
-  if (page.url().includes("accounts.google.com")) {
+  if (!await hasAuthCookie(context)) {
     console.log("Please log in to Google in the browser window...");
-    await page.waitForURL(
-      (url) => {
-        return (url.hostname === "notebook.google.com" || url.hostname === "notebooklm.google.com") && !url.pathname.includes("/login");
-      },
-      { timeout: 0 }
-    );
+    await page.goto(LOGIN_URL);
+    await waitForLogin(context, page);
   }
   await page.goto(GOOGLE_ACCOUNTS_URL, { waitUntil: "load" });
   await page.goto(NOTEBOOKLM_URL2, { waitUntil: "load" });

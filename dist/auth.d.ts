@@ -1,5 +1,5 @@
-import { a as CookieMap } from './auth-VG-Wp7XL.js';
-export { A as AuthTokens, C as ConnectOptions, b as buildCookieHeader, c as buildGoogleCookieHeader, d as connect, f as fetchTokens, l as loadCookiesFromFile, e as loadCookiesFromMap, g as loadCookiesFromObject, h as loadCookiesFromString, r as refreshAuthTokens } from './auth-VG-Wp7XL.js';
+import { C as CookieMap } from './auth-BlG6x47F.js';
+export { A as AuthTokens, a as ConnectOptions, b as buildCookieHeader, c as buildGoogleCookieHeader, d as connect, f as fetchTokens, l as loadCookiesFromFile, e as loadCookiesFromMap, g as loadCookiesFromObject, h as loadCookiesFromString, r as refreshAuthTokens } from './auth-BlG6x47F.js';
 
 /** Default directory for storing NotebookLM session files (~/.notebooklm). */
 declare const DEFAULT_SESSION_DIR: string;
